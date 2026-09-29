@@ -5,12 +5,20 @@ import { Trophy, Medal, Award, ArrowUpDown } from 'lucide-react';
 type SortKey = 'wins' | 'winRate' | 'diff' | 'games';
 
 export const StandingsView: React.FC = () => {
-  const { players } = useSession();
+  const { players, completedGamesCount } = useSession();
   const [sortKey, setSortKey] = useState<SortKey>('winRate');
 
   const sortedPlayers = [...players].sort((a, b) => {
-    const aWinRate = a.gamesPlayed > 0 ? a.wins / a.gamesPlayed : 0;
-    const bWinRate = b.gamesPlayed > 0 ? b.wins / b.gamesPlayed : 0;
+    const aHasPlayed = a.gamesPlayed > 0;
+    const bHasPlayed = b.gamesPlayed > 0;
+
+    // Never let a player with no completed games rank above a player who has played.
+    if (aHasPlayed !== bHasPlayed) {
+      return aHasPlayed ? -1 : 1;
+    }
+
+    const aWinRate = aHasPlayed ? a.wins / a.gamesPlayed : 0;
+    const bWinRate = bHasPlayed ? b.wins / b.gamesPlayed : 0;
     const aDiff = a.pointsWon - a.pointsLost;
     const bDiff = b.pointsWon - b.pointsLost;
 
@@ -29,6 +37,12 @@ export const StandingsView: React.FC = () => {
     return b.gamesPlayed - a.gamesPlayed;
   });
 
+  const rankByPlayerId = new Map(
+    sortedPlayers
+      .filter((player) => player.gamesPlayed > 0)
+      .map((player, index) => [player.id, index + 1])
+  );
+
   return (
     <div className="space-y-6 pb-28 md:pb-12 max-w-4xl mx-auto">
       {/* Header */}
@@ -40,6 +54,9 @@ export const StandingsView: React.FC = () => {
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Real-time leaderboard updated automatically after every recorded match.
+          </p>
+          <p className="text-[11px] text-emerald-400 font-bold mt-1">
+            {completedGamesCount} completed {completedGamesCount === 1 ? 'game' : 'games'}
           </p>
         </div>
 
@@ -95,6 +112,8 @@ export const StandingsView: React.FC = () => {
                     : 0;
                 const pointDiff = player.pointsWon - player.pointsLost;
 
+                const rank = rankByPlayerId.get(player.id) ?? null;
+
                 return (
                   <tr
                     key={player.id}
@@ -102,21 +121,23 @@ export const StandingsView: React.FC = () => {
                   >
                     {/* Rank */}
                     <td className="py-3.5 px-3 sm:px-4 text-center">
-                      {idx === 0 ? (
+                      {rank === null ? (
+                        <span className="font-mono-nums font-bold text-slate-600 text-xs">—</span>
+                      ) : rank === 1 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20">
                           1
                         </span>
-                      ) : idx === 1 ? (
+                      ) : rank === 2 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-950 font-black text-xs">
                           2
                         </span>
-                      ) : idx === 2 ? (
+                      ) : rank === 3 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700 text-white font-black text-xs">
                           3
                         </span>
                       ) : (
                         <span className="font-mono-nums font-bold text-slate-500 text-xs">
-                          {idx + 1}
+                          {rank}
                         </span>
                       )}
                     </td>
@@ -125,7 +146,7 @@ export const StandingsView: React.FC = () => {
                     <td className="py-3.5 px-3 sm:px-4">
                       <div className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
                         <span>{player.name}</span>
-                        {idx === 0 && <Medal className="w-3.5 h-3.5 text-amber-400" />}
+                        {rank === 1 && <Medal className="w-3.5 h-3.5 text-amber-400" />}
                       </div>
                       <span className="text-[10px] text-slate-400">
                         {player.status === 'active' ? 'Active' : 'Resting'}
