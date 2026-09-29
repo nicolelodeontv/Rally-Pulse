@@ -30,7 +30,7 @@ export const CountdownTimer: React.FC<{ compact?: boolean }> = ({ compact = fals
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1 shadow-sm">
+      <div className="h-10 flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 shadow-sm">
         <span
           className={`font-mono-nums font-black text-sm tracking-tight ${
             isTimeUp
@@ -46,7 +46,7 @@ export const CountdownTimer: React.FC<{ compact?: boolean }> = ({ compact = fals
         </span>
         <button
           onClick={isTimerRunning ? pauseTimer : startTimer}
-          className={`w-7 h-7 rounded-lg flex items-center justify-center transition active:scale-90 cursor-pointer ${
+          className={`h-8 w-8 rounded-lg flex items-center justify-center transition active:scale-90 cursor-pointer ${
             isTimerRunning
               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
               : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-sm'
