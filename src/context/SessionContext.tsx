@@ -1049,12 +1049,57 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const importSessionData = useCallback((jsonStr: string): boolean => {
     try {
       const data = JSON.parse(jsonStr);
+      const importedSettings: SessionSettings = {
+        ...DEFAULT_SETTINGS,
+        ...(data.settings || {}),
+      };
+      const importedCourts = Array.isArray(data.courts) ? data.courts : [];
+      const importedNames = importedCourts.map((court: Court) => court.name);
+      const validCourtCount = Math.max(
+        1,
+        Math.min(12, Number(importedSettings.courtCount) || DEFAULT_SETTINGS.courtCount)
+      );
+      const courtNames = Array.from(
+        { length: validCourtCount },
+        (_, idx) =>
+          importedNames[idx] ||
+          importedSettings.courtNames?.[idx] ||
+          `Court ${idx + 1}`
+      );
+      const loadedCourts = buildCourts(validCourtCount, courtNames);
+      const loadedRound = reconcileRoundCourtCount(
+        data.currentRound && typeof data.currentRound === 'object' ? data.currentRound : null,
+        validCourtCount
+      );
+
       if (data.players && Array.isArray(data.players)) setPlayers(data.players);
-      if (data.settings) setSettings(data.settings);
-      if (data.courts && Array.isArray(data.courts)) setCourts(data.courts);
+      setSettings({
+        ...importedSettings,
+        courtCount: validCourtCount,
+        courtNames: loadedCourts.map((court) => court.name),
+      });
+      setCourts(loadedCourts);
       if (data.rounds && Array.isArray(data.rounds)) setRounds(data.rounds);
-      if (data.currentRound) setCurrentRound(data.currentRound);
-      if (data.courtTimers && typeof data.courtTimers === 'object') setCourtTimers(data.courtTimers);
+      setCurrentRound(loadedRound);
+      if (data.courtTimers && typeof data.courtTimers === 'object') {
+        setCourtTimers(
+          initCourtTimers(
+            loadedCourts,
+            importedSettings.matchDurationMinutes,
+            importedSettings.timerMode,
+            data.courtTimers
+          )
+        );
+      } else {
+        setCourtTimers(
+          initCourtTimers(
+            loadedCourts,
+            importedSettings.matchDurationMinutes,
+            importedSettings.timerMode
+          )
+        );
+      }
+
       return true;
     } catch (e) {
       console.error('Import failed:', e);
