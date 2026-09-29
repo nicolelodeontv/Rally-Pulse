@@ -1229,7 +1229,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         activePreset,
         nextRoundNumber,
         prevCompletedRound,
-        settings.consecutiveWinLimit || 2
+        settings.consecutiveWinLimit || 2,
+        settings.shuffleDefaults
       );
       setCurrentRound(round);
       // Reset and auto-start timers for next round
@@ -1485,7 +1486,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         activePreset,
         nextRoundNumber,
         currentRound,
-        settings.consecutiveWinLimit || 2
+        settings.consecutiveWinLimit || 2,
+        settings.shuffleDefaults
       );
       setCurrentRound(round);
       resetTimer();
