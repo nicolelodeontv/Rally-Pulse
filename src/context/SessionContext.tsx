@@ -61,6 +61,8 @@ interface SessionContextType {
   // Match Share & Recap Modal
   activeRecapMatch: Match | null;
   setActiveRecapMatch: (match: Match | null) => void;
+  recapPlayers: Player[] | null;
+  setRecapPlayers: (players: Player[] | null) => void;
   // Actions
   addPlayer: (name: string, skillLevel: SkillLevel) => void;
   updatePlayer: (player: Player) => void;
@@ -135,6 +137,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isTvMode, setIsTvMode] = useState<boolean>(false);
   const [isAttendanceSheetOpen, setIsAttendanceSheetOpen] = useState(false);
   const [activeRecapMatch, setActiveRecapMatch] = useState<Match | null>(null);
+  const [recapPlayers, setRecapPlayers] = useState<Player[] | null>(null);
 
   // Auto-rotate state
   const [autoRotateCountdown, setAutoRotateCountdown] = useState<number | null>(null);
@@ -314,7 +317,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (decoded && decoded.m) {
           setActiveRecapMatch(decoded.m);
           if (decoded.p && Array.isArray(decoded.p) && decoded.p.length > 0) {
-            setPlayers(decoded.p);
+            setRecapPlayers(decoded.p);
           }
         }
       }
@@ -404,7 +407,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let finalPlayers = activePlayers;
 
     if (activeRound && activeRound.matches.length > 0) {
-      const updated = applyMatchResults(activePlayers, activeRound.matches);
+      const unapplied = activeRound.matches.filter((m) => m.completed && !m.statsApplied);
+      const updated = unapplied.length > 0 ? applyMatchResults(activePlayers, unapplied) : activePlayers;
       const activeRestingSet = new Set(activeRound.restingPlayerIds);
       finalPlayers = updated.map((p) => {
         if (activeRestingSet.has(p.id)) {
@@ -416,7 +420,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return p;
       });
       setPlayers(finalPlayers);
-      setRounds((prev) => [{ ...activeRound, completed: true }, ...prev]);
+      setRounds((prev) => [
+        { ...activeRound, completed: true, matches: activeRound.matches.map((m) => ({ ...m, statsApplied: m.completed ? true : m.statsApplied })) },
+        ...prev,
+      ]);
     }
 
     // 2. Generate next round with fair algorithm
@@ -425,8 +432,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = generateRotationRound(
         finalPlayers,
         currentCourts,
-        currentSettings.rotationStrategy,
-        nextRoundNumber
+        currentSettings.rotationPreset || currentSettings.rotationStrategy,
+        nextRoundNumber,
+        activeRound || undefined,
+        currentSettings.consecutiveWinLimit || 2
       );
       setCurrentRound(res.round);
     } catch (err) {
@@ -1242,7 +1251,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const updatedMatches = currentRound.matches.map((m) => {
       if (m.id === matchId) {
-        const elapsedSecs = courtTimersRef.current[m.courtId]?.seconds || m.durationSeconds || 0;
+        const timerSecs = courtTimersRef.current[m.courtId]?.seconds;
+        const elapsedSecs =
+          timerSecs === undefined
+            ? m.durationSeconds || 0
+            : settingsRef.current.timerMode === 'count_up'
+              ? timerSecs
+              : Math.max(0, settingsRef.current.matchDurationMinutes * 60 - timerSecs);
         const isCompleted = winner !== null;
         const updatedMatch: Match = {
           ...m,
@@ -1508,6 +1523,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getEstimatedWaitMinutes,
         activeRecapMatch,
         setActiveRecapMatch,
+        recapPlayers,
+        setRecapPlayers,
         addPlayer,
         updatePlayer,
         togglePlayerStatus,

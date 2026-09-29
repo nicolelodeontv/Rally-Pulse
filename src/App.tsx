@@ -17,7 +17,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { MatchShareModal } from './components/MatchShareModal';
 
 function MainContent() {
-  const { activeTab, isTvMode, activeRecapMatch, setActiveRecapMatch, players, setActiveTab } = useSession();
+  const { activeTab, isTvMode, activeRecapMatch, setActiveRecapMatch, recapPlayers, setRecapPlayers, players, setActiveTab } = useSession();
 
   if (isTvMode) {
     return <TvDisplayMode />;
@@ -39,11 +39,15 @@ function MainContent() {
       {/* Match Share Modal & Recap Card Receipt */}
       <MatchShareModal
         isOpen={activeRecapMatch !== null}
-        onClose={() => setActiveRecapMatch(null)}
+        onClose={() => {
+          setActiveRecapMatch(null);
+          setRecapPlayers(null);
+        }}
         match={activeRecapMatch}
-        allPlayers={players}
+        allPlayers={recapPlayers ?? players}
         onReturnToQueue={() => {
           setActiveRecapMatch(null);
+          setRecapPlayers(null);
           setActiveTab('queue');
         }}
       />
