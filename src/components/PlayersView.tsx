@@ -349,27 +349,6 @@ export const PlayersView: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Gender (for optional mixed doubles)</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { value: undefined, label: 'Not set' },
-                    { value: 'female' as const, label: 'Female' },
-                    { value: 'male' as const, label: 'Male' },
-                    { value: 'other' as const, label: 'Other' },
-                  ].map((option) => (
-                    <button
-                      key={option.label}
-                      type="button"
-                      onClick={() => setEditingPlayer({ ...editingPlayer, gender: option.value })}
-                      className={`py-2 rounded-xl font-bold text-[10px] transition cursor-pointer ${editingPlayer.gender === option.value ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
@@ -437,6 +416,27 @@ export const PlayersView: React.FC = () => {
                       }`}
                     >
                       {lvl.toFixed(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Gender (for optional mixed doubles)</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { value: undefined, label: 'Not set' },
+                    { value: 'female' as const, label: 'Female' },
+                    { value: 'male' as const, label: 'Male' },
+                    { value: 'other' as const, label: 'Other' },
+                  ].map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => setEditingPlayer({ ...editingPlayer, gender: option.value })}
+                      className={`py-2 rounded-xl font-bold text-[10px] transition cursor-pointer ${editingPlayer.gender === option.value ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                      {option.label}
                     </button>
                   ))}
                 </div>
