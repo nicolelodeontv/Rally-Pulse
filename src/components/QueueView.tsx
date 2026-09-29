@@ -14,12 +14,24 @@ export const QueueView: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
-  const completedMatches = [
-    ...rounds.flatMap((round) => round.matches.filter((match) => match.completed && match.winner)),
-    ...(currentRound?.matches.filter((match) => match.completed && match.winner) || []),
+  // History contains only finished matches. Keep the active round visible until it is moved into rounds.
+  const historyRounds = [
+    ...rounds.map((round) => ({
+      ...round,
+      matches: round.matches.filter((match) => match.completed && match.winner),
+    })).filter((round) => round.matches.length > 0),
+    ...(currentRound && currentRound.matches.some((match) => match.completed && match.winner)
+      ? [{
+          ...currentRound,
+          completed: true,
+          matches: currentRound.matches.filter((match) => match.completed && match.winner),
+        }]
+      : []),
   ];
 
-  // Count total completed games logged across all rounds
+  const completedMatches = historyRounds.flatMap((round) => round.matches);
+
+  // Count total completed games logged across all rounds, including the active round
   const totalCompletedGames = completedMatches.length;
 
   return (
@@ -130,7 +142,7 @@ export const QueueView: React.FC = () => {
           )}
         </div>
 
-        {rounds.length === 0 ? (
+        {historyRounds.length === 0 ? (
           <div className="text-center py-12 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 p-6">
             <CheckCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <h4 className="text-sm font-bold text-slate-300">No Completed Games Yet</h4>
@@ -139,7 +151,7 @@ export const QueueView: React.FC = () => {
             </p>
           </div>
         ) : (
-          rounds.map((round) => (
+          historyRounds.map((round) => (
             <div
               key={round.id}
               className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 shadow-md space-y-3"
