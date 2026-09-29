@@ -46,6 +46,7 @@ export const LiveView: React.FC = () => {
     createAndAssignPlayer,
     syncCurrentRoundWithRoster,
     reshuffleCurrentRound,
+    removePlayerFromSlot,
     generateNextRound,
     completeCurrentRound,
     setIsAttendanceSheetOpen,
@@ -316,6 +317,7 @@ export const LiveView: React.FC = () => {
                 onAssignSlot={handleOpenSlotAssign}
                 onOpenAttendance={() => setIsAttendanceSheetOpen(true)}
                 activePlayerCount={activePlayers.length}
+                onDropPlayerToSlot={(playerId, team, slotIndex) => assignPlayerToSlot(court.id, team, slotIndex, playerId)}
               />
             );
           })}
@@ -359,7 +361,17 @@ export const LiveView: React.FC = () => {
               All active players are currently placed on courts.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2.5">
+            <div
+              className="flex flex-wrap gap-2.5 min-h-[52px]"
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes('text/plain')) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const playerId = event.dataTransfer.getData('text/plain');
+                if (playerId) removePlayerFromSlot(playerId);
+              }}
+            >
               {roundRestingPlayers.map((player: any, idx: number) => {
                 const estWait = getEstimatedWaitMinutes(idx);
                 const badge = formatSkillBadge(player.skillLevel, settings.skillDisplayMode);
@@ -367,6 +379,11 @@ export const LiveView: React.FC = () => {
                 return (
                   <div
                     key={player.id}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('text/plain', player.id);
+                      event.dataTransfer.effectAllowed = 'move';
+                    }}
                     onClick={() => setSwapSourceId(player.id)}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700/80 hover:border-emerald-500/50 text-xs font-semibold text-slate-200 transition cursor-pointer active:scale-95 min-h-[44px] shadow-sm"
                     title="Click to swap this player into a court"
