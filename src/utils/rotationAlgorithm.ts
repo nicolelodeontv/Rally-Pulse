@@ -1,4 +1,4 @@
-import { Court, Match, Player, RotationPreset, RotationStrategy, Round } from '../types';
+import { Court, Match, Player, RotationPreset, RotationStrategy, Round, ShuffleOptions } from '../types';
 
 export interface RotationResult {
   round: Round;
@@ -12,8 +12,15 @@ export function generateRotationRound(
   strategyOrPreset: RotationStrategy | RotationPreset,
   roundNumber: number,
   previousRound?: Round | null,
-  consecutiveWinLimit: number = 2
+  consecutiveWinLimit: number = 2,
+  options: Partial<ShuffleOptions> = {}
 ): RotationResult {
+  const shuffleOptions: ShuffleOptions = {
+    avoidRepeatPartners: true,
+    equalizeTeamRatings: strategyOrPreset === 'skill_balanced',
+    forceMixedDoubles: false,
+    ...options,
+  };
   const activeCourts = courts.filter((c) => c.status === 'available');
   if (activeCourts.length === 0) {
     const emptyRound: Round = {
@@ -133,6 +140,9 @@ export function generateRotationRound(
             team2Score: 0,
             winner: null,
             completed: false,
+            servingPlayerId: stayingWinners[0],
+            serviceNumber: 1,
+            scoreHistory: [],
           });
           continue;
         }
@@ -246,8 +256,9 @@ export function generateRotationRound(
         // Partner penalty: Heavy penalty for repeated partner
         const p1p2Partnered = p1.partnerHistory[p2.id] || 0;
         const p3p4Partnered = p3.partnerHistory[p4.id] || 0;
-        optScore += (p1p2Partnered ** 2) * 60;
-        optScore += (p3p4Partnered ** 2) * 60;
+        const partnerWeight = shuffleOptions.avoidRepeatPartners ? 250 : 60;
+        optScore += (p1p2Partnered ** 2) * partnerWeight;
+        optScore += (p3p4Partnered ** 2) * partnerWeight;
 
         // Opponent penalty: Moderate penalty for repeated opponent
         const opps = [
@@ -265,10 +276,21 @@ export function generateRotationRound(
         const team2Skill = p3.skillLevel + p4.skillLevel;
         const skillDiff = Math.abs(team1Skill - team2Skill);
 
-        if (preset === 'skill_balanced') {
+        if (shuffleOptions.equalizeTeamRatings || preset === 'skill_balanced') {
           optScore += skillDiff * 35;
         } else {
           optScore += skillDiff * 6;
+        }
+
+        if (shuffleOptions.forceMixedDoubles) {
+          const team1Mixed =
+            (p1.gender === 'male' && p2.gender === 'female') ||
+            (p1.gender === 'female' && p2.gender === 'male');
+          const team2Mixed =
+            (p3.gender === 'male' && p4.gender === 'female') ||
+            (p3.gender === 'female' && p4.gender === 'male');
+          if (!team1Mixed) optScore += 2000;
+          if (!team2Mixed) optScore += 2000;
         }
 
         if (optScore < bestOptionScore) {
@@ -303,6 +325,9 @@ export function generateRotationRound(
     team2Score: 0,
     winner: null,
     completed: false,
+    servingPlayerId: assign.team1[0],
+    serviceNumber: 1,
+    scoreHistory: [],
   }));
 
   const round: Round = {

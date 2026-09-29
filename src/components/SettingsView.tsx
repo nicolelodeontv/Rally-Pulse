@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext';
 import { RotationStrategy } from '../types';
+import { buildDuprCsv } from '../utils/duprExport';
+import { downloadTextFile } from '../utils/sessionAnalytics';
+import { SessionRecapModal } from './SessionRecapModal';
 import { PWAInstallButton } from './PWAInstallButton';
 import {
   Sliders,
@@ -27,14 +30,26 @@ export const SettingsView: React.FC = () => {
     courts,
     updateCourtCount,
     updateCourtName,
-    resetSession,
     exportSessionData,
     importSessionData,
+    sessionEnded,
+    endSession,
+    getSessionRecap,
+    resetSession,
+    players,
+    rounds,
+    currentRound,
   } = useSession();
 
   const [importText, setImportText] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [showRecapModal, setShowRecapModal] = useState(false);
+
+  useEffect(() => {
+    if (sessionEnded) setShowRecapModal(true);
+  }, [sessionEnded]);
+
 
   const handleExport = () => {
     const json = exportSessionData();
@@ -544,6 +559,49 @@ export const SettingsView: React.FC = () => {
         <PWAInstallButton variant="settings" />
       </div>
 
+      {/* Analytics & DUPR Export */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-white">Session Analytics & DUPR Export</h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Export recorded matches for DUPR review/import and download a session recap when play is finished.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            onClick={() => {
+              const csv = buildDuprCsv(players, rounds, currentRound);
+              downloadTextFile(
+                `rallypulse-dupr-matches-${new Date().toISOString().slice(0, 10)}.csv`,
+                csv,
+                'text/csv;charset=utf-8'
+              );
+            }}
+            className="min-h-[44px] rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export DUPR CSV
+          </button>
+          <button
+            onClick={() => setShowRecapModal(true)}
+            className="min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-2"
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            View Session Recap
+          </button>
+        </div>
+
+        <a
+          href="https://www.dupr.com/club-resources"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center text-[11px] text-emerald-400 hover:text-emerald-300 font-bold"
+        >
+          Check the current official DUPR CSV template
+        </a>
+      </div>
+
       {/* Backup, Export & Reset */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
         <h2 className="text-base font-bold text-white">Data & Session Backup</h2>
@@ -566,6 +624,20 @@ export const SettingsView: React.FC = () => {
           >
             <Upload className="w-4 h-4 text-blue-400" />
             <span>Restore Backup</span>
+          </button>
+        </div>
+
+        <div className="pt-3 border-t border-slate-800">
+          <button
+            onClick={() => {
+              if (confirm('End this session and stop all active timers?')) {
+                endSession();
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition active:scale-95 cursor-pointer"
+          >
+            <Trophy className="w-4 h-4" />
+            <span>End Session & View Recap</span>
           </button>
         </div>
 
@@ -613,6 +685,15 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <SessionRecapModal
+        recap={getSessionRecap()}
+        onClose={() => setShowRecapModal(false)}
+        onStartNewSession={() => {
+          setShowRecapModal(false);
+          resetSession();
+        }}
+      />
     </div>
   );
 };

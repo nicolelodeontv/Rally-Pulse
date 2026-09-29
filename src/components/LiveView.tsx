@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../context/SessionContext';
 import { PickleballCourt, formatSkillBadge } from './PickleballCourt';
-import { MasterTimerBar } from './MasterTimerBar';
-import { CountdownTimer } from './CountdownTimer';
 import { SwapPlayerModal } from './SwapPlayerModal';
 import { SlotAssignModal } from './SlotAssignModal';
 import { BulkAddModal } from './BulkAddModal';
-import { SkillLevel, RotationPreset } from '../types';
+import { SmartReshuffleModal } from './SmartReshuffleModal';
+import { SkillLevel } from '../types';
 import {
   Sparkles,
   Users,
@@ -23,8 +22,6 @@ import {
   Plus,
   FileText,
   X,
-  ShieldCheck,
-  Zap,
   Timer,
 } from 'lucide-react';
 
@@ -38,13 +35,6 @@ interface ActiveSlotAssignmentTarget {
 
 const SKILL_LEVELS: SkillLevel[] = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
 
-const ROTATION_PRESETS: Array<{ id: RotationPreset; label: string; short: string }> = [
-  { id: '4_in_4_out', label: '4-in / 4-out (Standard)', short: '4-in/4-out' },
-  { id: '2_in_2_out_winners_stay', label: '2-in / 2-out (Winners Stay)', short: 'Winners Stay' },
-  { id: 'fair_play_sitout', label: 'Fair-Play Sit-Out Priority', short: 'Sit-Out Priority' },
-  { id: 'skill_balanced', label: 'Skill / DUPR Matchmaker', short: 'DUPR Match' },
-];
-
 export const LiveView: React.FC = () => {
   const {
     players,
@@ -55,6 +45,8 @@ export const LiveView: React.FC = () => {
     assignPlayerToSlot,
     createAndAssignPlayer,
     syncCurrentRoundWithRoster,
+    reshuffleCurrentRound,
+    removePlayerFromSlot,
     generateNextRound,
     completeCurrentRound,
     setIsAttendanceSheetOpen,
@@ -76,10 +68,10 @@ export const LiveView: React.FC = () => {
 
   const [swapSourceId, setSwapSourceId] = useState<string | null>(null);
   const [slotAssignTarget, setSlotAssignTarget] = useState<ActiveSlotAssignmentTarget | null>(null);
-  const [timerMode, setTimerMode] = useState<'independent' | 'global'>('independent');
   const [showFloatingPills, setShowFloatingPills] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [showReshuffleModal, setShowReshuffleModal] = useState(false);
 
   // Quick add form state
   const [quickName, setQuickName] = useState('');
@@ -213,28 +205,6 @@ export const LiveView: React.FC = () => {
         {/* Quick Header Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={toggleAutoRotate}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
-              settings.autoRotateEnabled
-                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-sm shadow-emerald-500/20'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
-            }`}
-            title="Automatically start next match when timer hits 00:00"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${settings.autoRotateEnabled ? 'text-emerald-400 animate-spin-slow' : 'text-slate-400'}`} />
-            <span>Auto-Rotate: {settings.autoRotateEnabled ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsAttendanceSheetOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer"
-            title="Open bench and attendance management"
-          >
-            <Users className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Attendance ({activePlayers.length})</span>
-          </button>
-
-          <button
             onClick={() => setIsTvMode(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-900/30 transition active:scale-95 cursor-pointer"
             title="Switch to full-screen Fence Board Kiosk Mode"
@@ -246,45 +216,7 @@ export const LiveView: React.FC = () => {
         </div>
       </div>
 
-      {/* Preset Rotation Rules Quick Selector Bar */}
-      <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 p-2 rounded-2xl overflow-x-auto shadow-md">
-        <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-slate-400 shrink-0">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span className="hidden sm:inline">Rotation Rule:</span>
-        </div>
-        <div className="flex items-center gap-1.5 flex-1">
-          {ROTATION_PRESETS.map((preset) => {
-            const isSelected = (settings.rotationPreset || '4_in_4_out') === preset.id;
-            return (
-              <button
-                key={preset.id}
-                onClick={() =>
-                  updateSettings({
-                    rotationPreset: preset.id,
-                    rotationStrategy: preset.id === 'skill_balanced' ? 'skill_balanced' : 'fair_social',
-                  })
-                }
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
-                  isSelected
-                    ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
-                    : 'bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {preset.short}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Primary Compact Master Timer Bar */}
-      <MasterTimerBar
-        timerMode={timerMode}
-        onTimerModeChange={setTimerMode}
-      />
-
-      {/* Global Countdown Timer Bar if in Global Mode */}
-      {timerMode === 'global' && <CountdownTimer />}
+      {/* Consolidated controls are available from the header Game Controls drawer. */}
 
       {/* No active round state / fewer than 4 active players */}
       {(!currentRound || activePlayers.length < 4) && (
@@ -363,6 +295,7 @@ export const LiveView: React.FC = () => {
                 onAssignSlot={handleOpenSlotAssign}
                 onOpenAttendance={() => setIsAttendanceSheetOpen(true)}
                 activePlayerCount={activePlayers.length}
+                onDropPlayerToSlot={(playerId, team, slotIndex) => assignPlayerToSlot(court.id, team, slotIndex, playerId)}
               />
             );
           })}
@@ -392,7 +325,7 @@ export const LiveView: React.FC = () => {
                 <span>+ Add Player</span>
               </button>
               <button
-                onClick={syncCurrentRoundWithRoster}
+                onClick={() => setShowReshuffleModal(true)}
                 className="min-h-[44px] text-xs font-bold px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
                 title="Re-shuffle current unstarted round with full active roster"
               >
@@ -406,7 +339,17 @@ export const LiveView: React.FC = () => {
               All active players are currently placed on courts.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2.5">
+            <div
+              className="flex flex-wrap gap-2.5 min-h-[52px]"
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes('text/plain')) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const playerId = event.dataTransfer.getData('text/plain');
+                if (playerId) removePlayerFromSlot(playerId);
+              }}
+            >
               {roundRestingPlayers.map((player: any, idx: number) => {
                 const estWait = getEstimatedWaitMinutes(idx);
                 const badge = formatSkillBadge(player.skillLevel, settings.skillDisplayMode);
@@ -414,6 +357,11 @@ export const LiveView: React.FC = () => {
                 return (
                   <div
                     key={player.id}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('text/plain', player.id);
+                      event.dataTransfer.effectAllowed = 'move';
+                    }}
                     onClick={() => setSwapSourceId(player.id)}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700/80 hover:border-emerald-500/50 text-xs font-semibold text-slate-200 transition cursor-pointer active:scale-95 min-h-[44px] shadow-sm"
                     title="Click to swap this player into a court"
@@ -428,7 +376,7 @@ export const LiveView: React.FC = () => {
                     </span>
                     {player.consecutiveRests > 0 && (
                       <span className="text-[10px] text-amber-400 font-bold">
-                        ({player.consecutiveRests} rest{player.consecutiveRests > 1 ? 's' : ''})
+                        • Sat {player.consecutiveRests} {player.consecutiveRests === 1 ? 'game' : 'games'}
                       </span>
                     )}
                   </div>
@@ -539,6 +487,22 @@ export const LiveView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <SmartReshuffleModal
+        isOpen={showReshuffleModal}
+        initialOptions={
+          settings.shuffleDefaults ?? {
+            avoidRepeatPartners: true,
+            equalizeTeamRatings: true,
+            forceMixedDoubles: false,
+          }
+        }
+        onClose={() => setShowReshuffleModal(false)}
+        onApply={(options) => {
+          updateSettings({ shuffleDefaults: options });
+          reshuffleCurrentRound(options);
+        }}
+      />
 
       {/* Quick Add Player Modal */}
       {showQuickAddModal && (

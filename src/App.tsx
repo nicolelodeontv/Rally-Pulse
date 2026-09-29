@@ -17,14 +17,14 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { MatchShareModal } from './components/MatchShareModal';
 
 function MainContent() {
-  const { activeTab, isTvMode, activeRecapMatch, setActiveRecapMatch, recapPlayers, setRecapPlayers, players, setActiveTab } = useSession();
+  const { activeTab, isTvMode, activeRecapMatch, setActiveRecapMatch, recapPlayers, setRecapPlayers, players, setActiveTab, settings } = useSession();
 
   if (isTvMode) {
     return <TvDisplayMode />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className={`min-h-screen flex flex-col ${settings.outdoorHighContrast ? 'outdoor-mode bg-slate-100 text-slate-950' : 'bg-slate-950 text-slate-100'}`}>
       <OfflineIndicator />
       <Header />
 

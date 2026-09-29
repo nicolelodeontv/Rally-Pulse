@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext';
-import { PickleballCourt, formatSkillBadge } from './PickleballCourt';
+import { formatSkillBadge } from './PickleballCourt';
+import { KioskCourtCard } from './KioskCourtCard';
 import { audioSynth } from '../utils/hardware';
 import {
   X,
@@ -94,7 +95,7 @@ export const TvDisplayMode: React.FC = () => {
     <div
       className={`fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto select-none transition-all ${
         settings.outdoorHighContrast
-          ? 'bg-black text-white'
+          ? 'bg-slate-50 text-slate-950'
           : 'bg-slate-950 text-white'
       }`}
     >
@@ -275,45 +276,52 @@ export const TvDisplayMode: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Courts Area: Expanded CSS Grid Courts */}
-      <div className="flex-1 py-6">
+      <section className="flex-1 py-4 md:py-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-sm md:text-base uppercase tracking-[0.22em] font-black opacity-60">Now Playing</div>
+            <div className="text-2xl md:text-4xl font-black">
+              {currentRound ? `${currentRound.matches.filter((m) => m.courtNumber <= settings.courtCount).length} live courts` : 'Courts are being prepared'}
+            </div>
+          </div>
+          <div className="text-right text-xs md:text-sm font-bold opacity-60">
+            {currentRound ? `Round ${currentRound.roundNumber}` : 'Ready'}
+          </div>
+        </div>
+
         {currentRound ? (
           <div
-            className={`grid gap-6 ${
-              settings.courtCount === 1
-                ? 'grid-cols-1 max-w-2xl mx-auto'
-                : settings.courtCount === 2
-                ? 'grid-cols-1 xl:grid-cols-2'
-                : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
-            }`}
+            className={settings.courtCount === 1
+              ? 'grid gap-5 grid-cols-1 max-w-5xl mx-auto'
+              : settings.courtCount === 2
+              ? 'grid gap-5 grid-cols-1 xl:grid-cols-2'
+              : 'grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+            }
           >
             {currentRound.matches
-              .filter((m) => m.courtNumber <= settings.courtCount)
+              .filter((match) => match.courtNumber <= settings.courtCount)
               .map((match) => (
-                <PickleballCourt
+                <KioskCourtCard
                   key={match.id}
-                  courtId={match.courtId}
-                  courtNumber={match.courtNumber}
-                  courtName={match.courtName}
                   match={match}
                   playersMap={playerMap}
-                  onRecordScore={recordMatchScore}
-                  isTvMode={true}
+                  timerSeconds={courtTimers[match.courtId]?.seconds ?? 0}
+                  settings={settings}
                 />
               ))}
           </div>
         ) : (
           <div className="text-center py-24">
-            <h2 className="text-2xl font-bold text-slate-300">No active matches</h2>
+            <h2 className="text-3xl md:text-5xl font-black opacity-80">No active matches</h2>
             <button
               onClick={generateNextRound}
-              className="mt-4 px-8 py-3 rounded-2xl bg-emerald-500 font-bold text-slate-950 text-base"
+              className="mt-6 px-8 py-4 rounded-2xl bg-emerald-500 font-black text-slate-950 text-base md:text-lg"
             >
               Start Next Game
             </button>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Bottom Ticker: On-Deck / Next Up Players Marquee */}
       {onDeckPlayers.length > 0 && (
@@ -331,9 +339,9 @@ export const TvDisplayMode: React.FC = () => {
               return (
                 <div
                   key={player.id}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 font-bold text-xs text-slate-100 whitespace-nowrap shadow-sm"
+                  className={settings.outdoorHighContrast ? "flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-300 font-black text-base text-slate-900 whitespace-nowrap" : "flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 font-black text-base text-slate-100 whitespace-nowrap"}
                 >
-                  <span className="font-extrabold text-white">{player.name}</span>
+                  <span className="font-black">{player.name}</span>
                   <span className={`font-mono-nums text-[10px] font-extrabold px-1.5 py-0.5 rounded-full border ${badge.bg}`}>
                     {badge.label}
                   </span>

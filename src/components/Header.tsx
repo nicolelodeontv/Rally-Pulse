@@ -2,6 +2,7 @@ import React from 'react';
 import { useSession } from '../context/SessionContext';
 import { ActiveTab } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { SessionControlDrawer } from './SessionControlDrawer';
 import { CountdownTimer } from './CountdownTimer';
 import {
   Flame,
@@ -11,8 +12,6 @@ import {
   Users,
   Trophy,
   Sliders,
-  Sun,
-  Moon,
 } from 'lucide-react';
 
 const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }> = [
@@ -24,7 +23,7 @@ const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: s
 ];
 
 export const Header: React.FC = () => {
-  const { activeTab, setActiveTab, setIsTvMode, isTvMode, settings, updateSettings } = useSession();
+  const { activeTab, setActiveTab, setIsTvMode, isTvMode, settings } = useSession();
 
   if (isTvMode) return null;
 
@@ -79,31 +78,9 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Tools: Outdoor Sun Mode, Mini Clock, TV Mode, PWA */}
+        {/* Right Tools: compact session controls, outdoor mode, TV mode, PWA */}
         <div className="flex items-center gap-2">
-          {/* Outdoor Sunlight Mode Quick Toggle */}
-          <button
-            onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm ${
-              settings.outdoorHighContrast
-                ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-amber-400/20'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
-            }`}
-            title={`Outdoor Sunlight Display Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
-          >
-            {settings.outdoorHighContrast ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-                <span className="text-[10px] font-black uppercase">Sun Mode</span>
-              </>
-            ) : (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[10px] text-slate-400 hidden sm:inline">Outdoor</span>
-              </>
-            )}
-          </button>
-
+          {activeTab === 'live' && <SessionControlDrawer />}
           {/* Mini Timer (visible if not on Live tab) */}
           {activeTab !== 'live' && (
             <div className="hidden sm:block">

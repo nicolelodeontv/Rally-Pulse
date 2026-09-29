@@ -16,6 +16,7 @@ export interface Player {
   pointsLost: number;
   consecutiveRests: number;
   consecutiveWins?: number;
+  gender?: 'male' | 'female' | 'other';
   partnerHistory: Record<string, number>; // playerId -> count
   opponentHistory: Record<string, number>; // playerId -> count
 }
@@ -47,6 +48,9 @@ export interface Match {
   completed: boolean;
   durationSeconds?: number;
   statsApplied?: boolean;
+  servingPlayerId?: string;
+  serviceNumber?: 1 | 2;
+  scoreHistory?: Array<{ team1Score: number; team2Score: number }>;
 }
 
 export interface Round {
@@ -66,6 +70,30 @@ export type RotationPreset =
   | 'fair_play_sitout'
   | 'skill_balanced';
 
+export interface ShuffleOptions {
+  avoidRepeatPartners: boolean;
+  equalizeTeamRatings: boolean;
+  forceMixedDoubles: boolean;
+}
+
+export interface SessionRecapPlayerStat {
+  id: string;
+  name: string;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  pointDifferential: number;
+}
+
+export interface SessionRecap {
+  generatedAt: string;
+  totalGames: number;
+  totalRounds: number;
+  averageMatchLengthSeconds: number;
+  playerStats: SessionRecapPlayerStat[];
+}
+
 export interface SessionSettings {
   courtCount: number;
   courtNames: string[];
@@ -84,6 +112,7 @@ export interface SessionSettings {
   autoRotateBufferSeconds: number;
   timerMode: 'count_up' | 'countdown';
   timerType: 'independent' | 'global';
+  shuffleDefaults?: ShuffleOptions;
 }
 
 export type ActiveTab = 'live' | 'queue' | 'players' | 'standings' | 'settings';
