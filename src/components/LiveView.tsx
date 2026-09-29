@@ -59,7 +59,7 @@ export const LiveView: React.FC = () => {
   const allMatchesFinished = currentRound?.matches.every((m) => m.completed) ?? false;
 
   return (
-    <div className="space-y-4 pb-32 md:pb-12 max-w-5xl mx-auto">
+    <div className="space-y-4 pb-[11rem] max-w-5xl mx-auto">
       {/* Auto-Rotate Flash Notification Notice */}
       {autoRotateNotice && (
         <div className="bg-emerald-500 text-slate-950 px-4 py-2.5 rounded-2xl font-black text-xs md:text-sm flex items-center justify-between shadow-xl shadow-emerald-500/25 animate-bounce">
@@ -313,7 +313,7 @@ export const LiveView: React.FC = () => {
                 className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30 transition active:scale-95 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Next Round</span>
+                <span>Next Game</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
