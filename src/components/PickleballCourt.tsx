@@ -15,6 +15,7 @@ import {
   Sparkles,
   Flame,
   FastForward,
+  CircleDot,
 } from 'lucide-react';
 import { useSession } from '../context/SessionContext';
 
@@ -73,6 +74,9 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
   const [t2Score, setT2Score] = useState(match?.team2Score || 0);
   const [isEndGameOpen, setIsEndGameOpen] = useState(false);
   const [endGameWinner, setEndGameWinner] = useState<'team1' | 'team2' | null>(null);
+  const [lastScoreSnapshot, setLastScoreSnapshot] = useState<{ team1: number; team2: number } | null>(null);
+  const [sideSwitchAlert, setSideSwitchAlert] = useState<string | null>(null);
+  const previousScoresRef = useRef({ team1: t1Score, team2: t2Score });
 
   const t1Names = match ? `${playersMap.get(match.team1[0])?.name || 'Player 1'} & ${playersMap.get(match.team1[1])?.name || 'Player 2'}` : 'Team 1';
   const t2Names = match ? `${playersMap.get(match.team2[0])?.name || 'Player 3'} & ${playersMap.get(match.team2[1])?.name || 'Player 4'}` : 'Team 2';
@@ -83,6 +87,23 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
       setT2Score(match.team2Score);
     }
   }, [match?.team1Score, match?.team2Score, match?.id]);
+
+  useEffect(() => {
+    const previous = previousScoresRef.current;
+    const reachedSix =
+      (previous.team1 < 6 && t1Score >= 6) ||
+      (previous.team2 < 6 && t2Score >= 6);
+
+    if (reachedSix) {
+      const team = t1Score >= 6 && previous.team1 < 6 ? 'Team 1' : 'Team 2';
+      setSideSwitchAlert(`${team} reached 6 points. Switch court sides now.`);
+      const timeout = window.setTimeout(() => setSideSwitchAlert(null), 4500);
+      previousScoresRef.current = { team1: t1Score, team2: t2Score };
+      return () => window.clearTimeout(timeout);
+    }
+
+    previousScoresRef.current = { team1: t1Score, team2: t2Score };
+  }, [t1Score, t2Score]);
 
   const isCountUp = settings.timerMode === 'count_up';
   const targetSeconds = settings.matchDurationMinutes * 60;
@@ -148,6 +169,21 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
     : t2HasMetTarget
     ? 'team2'
     : match?.winner || null;
+  const servingPlayerId = match?.servingPlayerId || match?.team1[0];
+  const servingTeam = match?.team1.includes(servingPlayerId || '') ? 'team1' : 'team2';
+  const serviceNumber = match?.serviceNumber || 1;
+
+  const team1Average = (t1p1 && t1p2)
+    ? (t1p1.skillLevel + t1p2.skillLevel) / 2
+    : 0;
+  const team2Average = (t2p1 && t2p2)
+    ? (t2p1.skillLevel + t2p2.skillLevel) / 2
+    : 0;
+  const teamSkillDifference = Math.abs(team1Average - team2Average);
+  const balanceLabel =
+    teamSkillDifference <= 0.2 ? 'Balanced' :
+    teamSkillDifference <= 0.5 ? 'Close' : 'Uneven';
+
 
   // Real-Time Court Status Badge Logic
   // 🟢 Active Match: Timer is running or scores are being logged
@@ -237,9 +273,12 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
   const t2p2 = playersMap.get(match.team2[1]);
 
   const handleScoreChange = (team: 'team1' | 'team2', delta: number) => {
-    if (!onRecordScore) return;
+    if (!onRecordScore || match.completed) return;
+
     let newT1 = t1Score;
     let newT2 = t2Score;
+    setLastScoreSnapshot({ team1: t1Score, team2: t2Score });
+
     if (team === 'team1') {
       newT1 = Math.max(0, t1Score + delta);
       setT1Score(newT1);
@@ -258,7 +297,30 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
         winner = null;
       }
     }
-    onRecordScore(match.id, newT1, newT2, winner);
+
+    const nextServiceNumber: 1 | 2 =
+      team === servingTeam ? (serviceNumber === 1 ? 2 : 1) : 1;
+    const nextServingPlayerId =
+      team === 'team1'
+        ? (nextServiceNumber === 1 ? match.team1[0] : match.team1[1])
+        : (nextServiceNumber === 1 ? match.team2[0] : match.team2[1]);
+
+    onRecordScore(
+      match.id,
+      newT1,
+      newT2,
+      winner,
+      nextServingPlayerId,
+      nextServiceNumber
+    );
+  };
+
+  const handleUndoPoint = () => {
+    if (!onRecordScore || !lastScoreSnapshot || match.completed) return;
+    setT1Score(lastScoreSnapshot.team1);
+    setT2Score(lastScoreSnapshot.team2);
+    onRecordScore(match.id, lastScoreSnapshot.team1, lastScoreSnapshot.team2, null);
+    setLastScoreSnapshot(null);
   };
 
   const handleConfirmResult = (winnerTeam: 'team1' | 'team2') => {
@@ -317,6 +379,12 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
           >
             {skillBadge.label}
           </span>
+          {player.id === servingPlayerId && (
+            <span className="flex items-center gap-1 shrink-0 text-[9px] font-black uppercase text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded-full">
+              <CircleDot className="w-3 h-3" />
+              {serviceNumber === 1 ? '1st Server' : '2nd Server'}
+            </span>
+          )}
         </div>
 
         {!isTvMode && onInitiateSwap && (
@@ -396,7 +464,7 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
           {!isTvMode && (
             <button
               onClick={() => handleScoreChange('team1', -1)}
-              className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition active:scale-95 cursor-pointer shadow-sm"
+              className="w-14 h-14 min-w-[56px] min-h-[56px] rounded-xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition active:scale-95 cursor-pointer shadow-sm"
               title="Subtract 1 point Team 1"
             >
               <Minus className="w-5 h-5" />
@@ -445,6 +513,38 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-3 px-1 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-black">Team DUPR</span>
+          <span className="font-mono-nums text-sm font-black text-slate-200">
+            {team1Average.toFixed(1)} vs {team2Average.toFixed(1)}
+          </span>
+        </div>
+        <span className={`text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-full ${
+          teamSkillDifference <= 0.2
+            ? 'bg-emerald-500/10 text-emerald-300'
+            : teamSkillDifference <= 0.5
+            ? 'bg-amber-500/10 text-amber-300'
+            : 'bg-rose-500/10 text-rose-300'
+        }`}>
+          {balanceLabel} • Δ {teamSkillDifference.toFixed(1)}
+        </span>
+      </div>
+
+      {sideSwitchAlert && (
+        <div className="mb-2.5 rounded-xl bg-amber-400 text-slate-950 px-3 py-2.5 text-xs font-black flex items-center justify-between gap-2 shadow-lg animate-pulse">
+          <span>{sideSwitchAlert}</span>
+          <span className="uppercase tracking-wider text-[9px]">Side Switch</span>
+        </div>
+      )}
+
+      <div className="mb-2.5 flex items-center justify-center">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 text-slate-300 text-[10px] font-black uppercase tracking-wide">
+          <CircleDot className="w-3.5 h-3.5 text-amber-400" />
+          Serving: {servingTeam === 'team1' ? team1Names : team2Names} • {serviceNumber === 1 ? '1st server' : '2nd server'}
+        </span>
+      </div>
+
       {/* Target & Rules Indicator */}
       {!isTimedOnly && (
         <div className="flex items-center justify-between text-xs px-1 mb-2.5 font-bold">
@@ -457,6 +557,19 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
               {detectedWinner === 'team1' ? 'Team 1 Reached Target!' : 'Team 2 Reached Target!'}
             </span>
           )}
+        </div>
+      )}
+
+      {!isTvMode && !match.completed && (
+        <div className="flex items-center justify-end mb-2.5">
+          <button
+            type="button"
+            onClick={handleUndoPoint}
+            disabled={!lastScoreSnapshot}
+            className="min-h-[44px] px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:text-slate-600 disabled:bg-slate-900 disabled:cursor-not-allowed text-xs font-black transition active:scale-95 border border-slate-800"
+          >
+            Undo Point
+          </button>
         </div>
       )}
 
