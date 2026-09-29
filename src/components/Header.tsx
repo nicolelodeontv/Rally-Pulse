@@ -12,7 +12,6 @@ import {
   Users,
   Trophy,
   Sliders,
-  Sun,
 } from 'lucide-react';
 
 const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }> = [
@@ -24,7 +23,7 @@ const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: s
 ];
 
 export const Header: React.FC = () => {
-  const { activeTab, setActiveTab, setIsTvMode, isTvMode, settings, updateSettings } = useSession();
+  const { activeTab, setActiveTab, setIsTvMode, isTvMode, settings } = useSession();
 
   if (isTvMode) return null;
 
@@ -82,20 +81,6 @@ export const Header: React.FC = () => {
         {/* Right Tools: compact session controls, outdoor mode, TV mode, PWA */}
         <div className="flex items-center gap-2">
           {activeTab === 'live' && <SessionControlDrawer />}
-          {/* Outdoor Sunlight Mode Quick Toggle */}
-          <button
-            onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
-              settings.outdoorHighContrast
-                ? 'bg-amber-400 text-slate-950 font-black shadow-sm shadow-amber-400/20'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
-            }`}
-            title={`Outdoor Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
-          >
-            <Sun className={`w-3.5 h-3.5 ${settings.outdoorHighContrast ? 'text-slate-950 fill-slate-950' : 'text-amber-400'}`} />
-            <span className="text-[10px] uppercase">{settings.outdoorHighContrast ? 'Outdoor On' : 'Outdoor'}</span>
-          </button>
-
           {/* Mini Timer (visible if not on Live tab) */}
           {activeTab !== 'live' && (
             <div className="hidden sm:block">
