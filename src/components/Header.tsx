@@ -2,6 +2,7 @@ import React from 'react';
 import { useSession } from '../context/SessionContext';
 import { ActiveTab } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { SessionControlDrawer } from './SessionControlDrawer';
 import { CountdownTimer } from './CountdownTimer';
 import {
   Flame,
@@ -12,7 +13,6 @@ import {
   Trophy,
   Sliders,
   Sun,
-  Moon,
 } from 'lucide-react';
 
 const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }> = [
@@ -79,29 +79,21 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Tools: Outdoor Sun Mode, Mini Clock, TV Mode, PWA */}
+        {/* Right Tools: compact session controls, outdoor mode, TV mode, PWA */}
         <div className="flex items-center gap-2">
+          {activeTab === 'live' && <SessionControlDrawer />}
           {/* Outdoor Sunlight Mode Quick Toggle */}
           <button
             onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
               settings.outdoorHighContrast
-                ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-amber-400/20'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+                ? 'bg-amber-400 text-slate-950 font-black shadow-sm shadow-amber-400/20'
+                : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
             }`}
-            title={`Outdoor Sunlight Display Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
+            title={`Outdoor Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
           >
-            {settings.outdoorHighContrast ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-                <span className="text-[10px] font-black uppercase">Sun Mode</span>
-              </>
-            ) : (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[10px] text-slate-400 hidden sm:inline">Outdoor</span>
-              </>
-            )}
+            <Sun className={`w-3.5 h-3.5 ${settings.outdoorHighContrast ? 'text-slate-950 fill-slate-950' : 'text-amber-400'}`} />
+            <span className="text-[10px] uppercase">{settings.outdoorHighContrast ? 'Outdoor On' : 'Outdoor'}</span>
           </button>
 
           {/* Mini Timer (visible if not on Live tab) */}
