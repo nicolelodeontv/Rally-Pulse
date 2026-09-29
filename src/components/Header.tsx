@@ -12,7 +12,6 @@ import {
   Trophy,
   Sliders,
   Sun,
-  Moon,
 } from 'lucide-react';
 
 const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }> = [
@@ -84,9 +83,9 @@ export const Header: React.FC = () => {
           {/* Outdoor Sunlight Mode Quick Toggle */}
           <button
             onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
-            className={`h-10 flex items-center gap-2 px-3 rounded-lg text-sm font-bold transition cursor-pointer active:scale-95 ${
+            className={`h-10 flex items-center gap-2 px-3 rounded-lg border text-sm font-bold transition cursor-pointer active:scale-95 ${
               settings.outdoorHighContrast
-                ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-amber-400/20'
+                ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-amber-400/20'
                 : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
             }`}
             title={`Outdoor Sunlight Display Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
