@@ -205,28 +205,6 @@ export const LiveView: React.FC = () => {
         {/* Quick Header Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={toggleAutoRotate}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
-              settings.autoRotateEnabled
-                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-sm shadow-emerald-500/20'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
-            }`}
-            title="Automatically start next match when timer hits 00:00"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${settings.autoRotateEnabled ? 'text-emerald-400 animate-spin-slow' : 'text-slate-400'}`} />
-            <span>Auto-Rotate: {settings.autoRotateEnabled ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsAttendanceSheetOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer"
-            title="Open bench and attendance management"
-          >
-            <Users className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Attendance ({activePlayers.length})</span>
-          </button>
-
-          <button
             onClick={() => setIsTvMode(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-900/30 transition active:scale-95 cursor-pointer"
             title="Switch to full-screen Fence Board Kiosk Mode"
@@ -398,7 +376,7 @@ export const LiveView: React.FC = () => {
                     </span>
                     {player.consecutiveRests > 0 && (
                       <span className="text-[10px] text-amber-400 font-bold">
-                        ({player.consecutiveRests} rest{player.consecutiveRests > 1 ? 's' : ''})
+                        • Sat {player.consecutiveRests} {player.consecutiveRests === 1 ? 'game' : 'games'}
                       </span>
                     )}
                   </div>
