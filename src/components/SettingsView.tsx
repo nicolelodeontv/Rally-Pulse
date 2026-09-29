@@ -321,7 +321,7 @@ export const SettingsView: React.FC = () => {
                 onClick={() => updateSettings({ matchDurationMinutes: mins })}
                 className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
                   settings.matchDurationMinutes === mins
-                    ? 'bg-amber-500 text-slate-950'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
