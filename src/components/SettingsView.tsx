@@ -30,7 +30,6 @@ export const SettingsView: React.FC = () => {
     courts,
     updateCourtCount,
     updateCourtName,
-    resetSession,
     exportSessionData,
     importSessionData,
     sessionEnded,
