@@ -39,6 +39,7 @@ interface SessionContextType {
   players: Player[];
   courts: Court[];
   rounds: Round[];
+  completedGamesCount: number;
   currentRound: Round | null;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
@@ -94,6 +95,41 @@ function buildCourts(count: number, names?: string[]): Court[] {
     name: names && names[idx] ? names[idx] : `Court ${idx + 1}`,
     status: 'available',
   }));
+}
+
+function reconcileRoundCourtCount(round: Round | null, courtCount: number): Round | null {
+  if (!round) return null;
+
+  const removedMatches = round.matches.filter((match) => match.courtNumber > courtCount);
+  if (removedMatches.length === 0) {
+    return round;
+  }
+
+  const remainingMatches = round.matches.filter((match) => match.courtNumber <= courtCount);
+  const remainingPlayerIds = new Set(
+    remainingMatches.flatMap((match) => [...match.team1, ...match.team2])
+  );
+
+  const removedPlayerIds = removedMatches.flatMap((match) => [
+    ...match.team1,
+    ...match.team2,
+  ]);
+
+  const nextRestingIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const playerId of [...removedPlayerIds, ...round.restingPlayerIds]) {
+    if (remainingPlayerIds.has(playerId) || seen.has(playerId)) continue;
+    seen.add(playerId);
+    nextRestingIds.push(playerId);
+  }
+
+  return {
+    ...round,
+    matches: remainingMatches,
+    restingPlayerIds: nextRestingIds,
+    completed: remainingMatches.length > 0 && remainingMatches.every((match) => match.completed),
+  };
 }
 
 function initCourtTimers(
@@ -165,19 +201,53 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const persistedCourts = Array.isArray(parsed.courts) ? parsed.courts : [];
+        const mergedSettings = {
+          ...DEFAULT_SETTINGS,
+          ...(parsed.settings || {}),
+        };
+        const persistedCourtNames = persistedCourts.map((court: Court) => court.name);
+        const reconciledCourtNames = Array.from(
+          { length: Math.max(1, Math.min(12, Number(mergedSettings.courtCount) || DEFAULT_SETTINGS.courtCount)) },
+          (_, idx) =>
+            persistedCourtNames[idx] ||
+            mergedSettings.courtNames?.[idx] ||
+            `Court ${idx + 1}`
+        );
+        const loadedCourtCount = reconciledCourtNames.length;
+        const loadedCourts = buildCourts(loadedCourtCount, reconciledCourtNames);
+        const loadedRound = reconcileRoundCourtCount(
+          parsed.currentRound && typeof parsed.currentRound === 'object' ? parsed.currentRound : null,
+          loadedCourtCount
+        );
+
         if (parsed.players && Array.isArray(parsed.players)) setPlayers(parsed.players);
-        if (parsed.settings) {
-          setSettings({
-            ...DEFAULT_SETTINGS,
-            ...parsed.settings,
-          });
-        }
-        if (parsed.courts && Array.isArray(parsed.courts)) setCourts(parsed.courts);
+        setSettings({
+          ...mergedSettings,
+          courtCount: loadedCourtCount,
+          courtNames: loadedCourts.map((court) => court.name),
+        });
+        setCourts(loadedCourts);
         if (parsed.rounds && Array.isArray(parsed.rounds)) setRounds(parsed.rounds);
-        if (parsed.currentRound) setCurrentRound(parsed.currentRound);
+        setCurrentRound(loadedRound);
         if (typeof parsed.timerSeconds === 'number') setTimerSeconds(parsed.timerSeconds);
         if (parsed.courtTimers && typeof parsed.courtTimers === 'object') {
-          setCourtTimers(parsed.courtTimers);
+          setCourtTimers(
+            initCourtTimers(
+              loadedCourts,
+              mergedSettings.matchDurationMinutes,
+              mergedSettings.timerMode,
+              parsed.courtTimers
+            )
+          );
+        } else {
+          setCourtTimers(
+            initCourtTimers(
+              loadedCourts,
+              mergedSettings.matchDurationMinutes,
+              mergedSettings.timerMode
+            )
+          );
         }
         return;
       }
@@ -628,15 +698,21 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Update court count
   const updateCourtCount = useCallback((count: number) => {
     const validCount = Math.max(1, Math.min(12, count));
-    const newCourts = buildCourts(validCount, settings.courtNames);
+    const currentSettings = settingsRef.current;
+    const existingNames = courtsRef.current.map((court) => court.name);
+    const newCourts = buildCourts(validCount, existingNames);
+    
     setCourts(newCourts);
-    setCourtTimers((prev) => initCourtTimers(newCourts, settings.matchDurationMinutes, settings.timerMode, prev));
+    setCourtTimers((prev) =>
+      initCourtTimers(newCourts, currentSettings.matchDurationMinutes, currentSettings.timerMode, prev)
+    );
+    setCurrentRound((prev) => reconcileRoundCourtCount(prev, validCount));
     setSettings((prev) => ({
       ...prev,
       courtCount: validCount,
-      courtNames: newCourts.map((c) => c.name),
+      courtNames: newCourts.map((court) => court.name),
     }));
-  }, [settings.courtNames, settings.matchDurationMinutes, settings.timerMode]);
+  }, []);
 
   const updateCourtName = useCallback((courtId: string, name: string) => {
     setCourts((prev) =>
@@ -903,13 +979,25 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateSettings = useCallback((newSettings: Partial<SessionSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-      if (newSettings.courtCount && newSettings.courtCount !== prev.courtCount) {
-        const newCourts = buildCourts(newSettings.courtCount, updated.courtNames);
+
+      if (newSettings.courtCount !== undefined && newSettings.courtCount !== prev.courtCount) {
+        const validCount = Math.max(1, Math.min(12, newSettings.courtCount));
+        const existingNames = courtsRef.current.map((court) => court.name);
+        const newCourts = buildCourts(validCount, existingNames);
+
         setCourts(newCourts);
         setCourtTimers((prevTimers) =>
           initCourtTimers(newCourts, updated.matchDurationMinutes, updated.timerMode, prevTimers)
         );
+        setCurrentRound((prevRound) => reconcileRoundCourtCount(prevRound, validCount));
+
+        return {
+          ...updated,
+          courtCount: validCount,
+          courtNames: newCourts.map((court) => court.name),
+        };
       }
+
       if (newSettings.timerMode && newSettings.timerMode !== prev.timerMode) {
         const isNowCountUp = newSettings.timerMode === 'count_up';
         setTimerSeconds(isNowCountUp ? 0 : updated.matchDurationMinutes * 60);
@@ -925,6 +1013,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return next;
         });
       }
+
       return updated;
     });
   }, []);
@@ -973,12 +1062,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  const completedGamesCount = rounds.reduce(
+    (total, round) => total + round.matches.filter((match) => match.completed).length,
+    0
+  );
+
   return (
     <SessionContext.Provider
       value={{
         players,
         courts,
         rounds,
+        completedGamesCount,
         currentRound,
         activeTab,
         setActiveTab,
