@@ -421,7 +421,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       setPlayers(finalPlayers);
       setRounds((prev) => [
-        { ...activeRound, completed: true, matches: activeRound.matches.map((m) => ({ ...m, statsApplied: true })) },
+        { ...activeRound, completed: true, matches: activeRound.matches.map((m) => ({ ...m, statsApplied: m.completed ? true : m.statsApplied })) },
         ...prev,
       ]);
     }
