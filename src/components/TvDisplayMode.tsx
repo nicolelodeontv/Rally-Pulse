@@ -207,7 +207,7 @@ export const TvDisplayMode: React.FC = () => {
         {currentRound ? (
           <div
             className={`grid gap-6 ${
-              currentRound.matches.length === 1
+              settings.courtCount === 1
                 ? 'grid-cols-1 max-w-2xl mx-auto'
                 : settings.courtCount === 2
                 ? 'grid-cols-1 xl:grid-cols-2'
@@ -231,7 +231,7 @@ export const TvDisplayMode: React.FC = () => {
               onClick={generateNextRound}
               className="mt-4 px-8 py-3 rounded-2xl bg-emerald-500 font-bold text-slate-950 text-base"
             >
-              Start Next Round
+              Start Next Game
             </button>
           </div>
         )}
