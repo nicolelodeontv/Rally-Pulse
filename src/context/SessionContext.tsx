@@ -1115,6 +1115,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           team2Score: 0,
           winner: null,
           completed: false,
+          servingPlayerId: playerId,
+          serviceNumber: 1,
+          scoreHistory: [],
         };
         newMatch[team][slotIndex] = playerId;
         existingMatches.push(newMatch);
@@ -1140,6 +1143,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         updatedTeam[slotIndex] = playerId;
         targetMatch[team] = updatedTeam;
+        const allAssigned = [...targetMatch.team1, ...targetMatch.team2];
+        if (!targetMatch.servingPlayerId || !allAssigned.includes(targetMatch.servingPlayerId)) {
+          targetMatch.servingPlayerId = targetMatch.team1[0] || targetMatch.team2[0] || playerId;
+          targetMatch.serviceNumber = 1;
+        }
         existingMatches[matchIndex] = targetMatch;
       }
 
