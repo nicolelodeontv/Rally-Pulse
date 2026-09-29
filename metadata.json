@@ -1,0 +1,6 @@
+{
+  "name": "RallyPulse - Court Rotation & Matchmaker",
+  "description": "Smart doubles court rotation generator, queue manager, and live TV display for pickleball, tennis, and badminton open play sessions with fair matchmaking and timer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
