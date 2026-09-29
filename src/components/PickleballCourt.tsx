@@ -380,6 +380,14 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
           event.dataTransfer.setData('text/plain', player.id);
           event.dataTransfer.effectAllowed = 'move';
         }}
+        onDragOver={(event) => {
+          if (!isTvMode && event.dataTransfer.types.includes('text/plain')) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const playerId = event.dataTransfer.getData('text/plain');
+          if (playerId) onDropPlayerToSlot?.(playerId, teamNumber === 1 ? 'team1' : 'team2', slotIndex);
+        }}
         className={`group relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 select-none min-h-[48px] ${
           isWinner
             ? 'bg-amber-400/25 border-2 border-amber-400 text-amber-200 shadow-md shadow-amber-500/20'
