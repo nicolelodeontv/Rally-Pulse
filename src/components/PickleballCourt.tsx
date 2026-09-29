@@ -25,7 +25,7 @@ interface PickleballCourtProps {
   courtName: string;
   match?: Match;
   playersMap: Map<string, Player>;
-  onRecordScore?: (matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null) => void;
+  onRecordScore?: (matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null, servingPlayerId?: string, serviceNumber?: 1 | 2) => void;
   onInitiateSwap?: (playerId: string) => void;
   onAssignSlot?: (courtId: string, team: 'team1' | 'team2', slotIndex: 0 | 1, slotName: string) => void;
   onOpenAttendance?: () => void;
@@ -173,11 +173,13 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
   const servingTeam = match?.team1.includes(servingPlayerId || '') ? 'team1' : 'team2';
   const serviceNumber = match?.serviceNumber || 1;
 
-  const team1Average = (t1p1 && t1p2)
-    ? (t1p1.skillLevel + t1p2.skillLevel) / 2
+  const team1PlayersForMetrics = match ? [playersMap.get(match.team1[0]), playersMap.get(match.team1[1])] : [];
+  const team2PlayersForMetrics = match ? [playersMap.get(match.team2[0]), playersMap.get(match.team2[1])] : [];
+  const team1Average = (team1PlayersForMetrics[0] && team1PlayersForMetrics[1])
+    ? (team1PlayersForMetrics[0].skillLevel + team1PlayersForMetrics[1].skillLevel) / 2
     : 0;
-  const team2Average = (t2p1 && t2p2)
-    ? (t2p1.skillLevel + t2p2.skillLevel) / 2
+  const team2Average = (team2PlayersForMetrics[0] && team2PlayersForMetrics[1])
+    ? (team2PlayersForMetrics[0].skillLevel + team2PlayersForMetrics[1].skillLevel) / 2
     : 0;
   const teamSkillDifference = Math.abs(team1Average - team2Average);
   const balanceLabel =
