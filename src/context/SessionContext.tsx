@@ -486,7 +486,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTimeout(() => {
       setAutoRotateNotice(null);
     }, 5000);
-  }, []);
+  }, [sessionEnded]);
 
   const executeAutoRotateRef = useRef(executeAutoRotate);
   executeAutoRotateRef.current = executeAutoRotate;
@@ -1229,6 +1229,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Generate Next Round
   const generateNextRound = useCallback(() => {
+    if (sessionEnded) return;
     const nextRoundNumber = (currentRound ? currentRound.roundNumber : rounds.length) + 1;
     const prevCompletedRound = currentRound?.completed ? currentRound : rounds[0] || null;
     const activePreset = settings.rotationPreset || settings.rotationStrategy;
