@@ -140,7 +140,7 @@ export const QueueView: React.FC = () => {
                         {m.winner && (
                           <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
                             <Trophy className="w-2.5 h-2.5" />
-                            {m.winner === 'team1' ? 'Team 1 Won' : 'Team 2 Won'}
+                            {m.winner === 'team1' ? 'Team 1 Won • Team 2 Lost' : 'Team 2 Won • Team 1 Lost'}
                           </span>
                         )}
                       </div>
