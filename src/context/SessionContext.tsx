@@ -1259,7 +1259,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e: any) {
       alert(e.message || 'Cannot generate round. Please check active players.');
     }
-  }, [currentRound, rounds, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.matchDurationMinutes, settings.soundEnabled, settings.timerMode, settings.consecutiveWinLimit]);
+  }, [currentRound, rounds, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.matchDurationMinutes, settings.soundEnabled, settings.timerMode, settings.consecutiveWinLimit, settings.shuffleDefaults, sessionEnded]);
 
   // Record score & winner for a match with duration logging
   const recordMatchScore = useCallback((
@@ -1494,7 +1494,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {
       setCurrentRound(null);
     }
-  }, [currentRound, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.consecutiveWinLimit, resetTimer, sessionEnded]);
+  }, [currentRound, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.consecutiveWinLimit, settings.shuffleDefaults, resetTimer, sessionEnded]);
 
   const updateSettings = useCallback((newSettings: Partial<SessionSettings>) => {
     setSettings((prev) => {
