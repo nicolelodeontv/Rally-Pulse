@@ -50,7 +50,8 @@ export const TvDisplayMode: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
-  const allMatchesFinished = currentRound?.matches.every((m) => m.completed) ?? false;
+  const visibleMatches = currentRound?.matches.filter((match) => match.courtNumber <= settings.courtCount) ?? [];
+  const allMatchesFinished = visibleMatches.length > 0 && visibleMatches.every((m) => m.completed);
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -208,12 +209,12 @@ export const TvDisplayMode: React.FC = () => {
             className={`grid gap-6 ${
               currentRound.matches.length === 1
                 ? 'grid-cols-1 max-w-2xl mx-auto'
-                : currentRound.matches.length === 2
+                : settings.courtCount === 2
                 ? 'grid-cols-1 xl:grid-cols-2'
                 : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
             }`}
           >
-            {currentRound.matches.map((match) => (
+            {visibleMatches.map((match) => (
               <PickleballCourt
                 key={match.id}
                 match={match}
