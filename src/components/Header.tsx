@@ -31,7 +31,7 @@ export const Header: React.FC = () => {
     <header
       className={`sticky top-0 z-40 transition-all border-b ${
         settings.outdoorHighContrast
-          ? 'bg-black border-emerald-400/80 shadow-lg shadow-black'
+          ? 'bg-white border-slate-300 shadow-sm'
           : 'bg-slate-950/85 backdrop-blur-xl border-slate-800/80'
       }`}
     >
