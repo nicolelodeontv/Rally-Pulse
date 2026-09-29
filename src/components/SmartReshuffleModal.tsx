@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShuffleOptions } from '../types';
 import { RefreshCw, Users, Scale, HeartHandshake, X } from 'lucide-react';
 
@@ -16,6 +16,10 @@ export const SmartReshuffleModal: React.FC<SmartReshuffleModalProps> = ({
   onApply,
 }) => {
   const [options, setOptions] = useState<ShuffleOptions>(initialOptions);
+
+  useEffect(() => {
+    if (isOpen) setOptions(initialOptions);
+  }, [isOpen, initialOptions.avoidRepeatPartners, initialOptions.equalizeTeamRatings, initialOptions.forceMixedDoubles]);
 
   if (!isOpen) return null;
 
