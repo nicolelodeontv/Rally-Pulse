@@ -20,6 +20,9 @@ export const SessionControlDrawer: React.FC = () => {
     pauseAllCourtTimers,
     toggleAutoRotate,
     setIsAttendanceSheetOpen,
+    setActiveTab,
+    endSession,
+    sessionEnded,
   } = useSession();
   const [open, setOpen] = useState(false);
 
@@ -119,6 +122,21 @@ export const SessionControlDrawer: React.FC = () => {
               Outdoor
             </button>
           </div>
+        </div>
+
+        <div className="border-t border-slate-800 pt-2">
+          <button
+            disabled={sessionEnded}
+            onClick={() => {
+              if (confirm('End this session, stop all timers, and open the session recap?')) {
+                endSession();
+                setActiveTab('settings');
+              }
+            }}
+            className="w-full min-h-[40px] rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-[10px] font-black flex items-center justify-center gap-1.5"
+          >
+            End Session & View Recap
+          </button>
         </div>
 
         <div className="rounded-xl bg-slate-900 p-2.5">
