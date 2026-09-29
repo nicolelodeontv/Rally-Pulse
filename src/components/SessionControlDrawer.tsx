@@ -142,7 +142,7 @@ export const SessionControlDrawer: React.FC = () => {
         <div className="rounded-xl bg-slate-900 p-2.5">
           <span className="text-[10px] uppercase tracking-wide text-slate-500 font-black">Courts</span>
           <div className="mt-1.5 grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((count) => (
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((count) => (
               <button
                 key={count}
                 onClick={() => updateSettings({ courtCount: count })}
