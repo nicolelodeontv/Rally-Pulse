@@ -71,7 +71,7 @@ interface SessionContextType {
   setRecapPlayers: (players: Player[] | null) => void;
   sessionEnded: boolean;
   // Actions
-  addPlayer: (name: string, skillLevel: SkillLevel) => void;
+  addPlayer: (name: string, skillLevel: SkillLevel, gender?: Player['gender']) => void;
   updatePlayer: (player: Player) => void;
   togglePlayerStatus: (playerId: string) => void;
   deletePlayer: (playerId: string) => void;
@@ -993,7 +993,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   // Player management with Auto-Sync
-  const addPlayer = useCallback((name: string, skillLevel: SkillLevel) => {
+  const addPlayer = useCallback((name: string, skillLevel: SkillLevel, gender?: Player['gender']) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     const newPlayer: Player = {
@@ -1001,6 +1001,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name: trimmed,
       skillLevel,
       status: 'active',
+      gender,
       gamesPlayed: 0,
       wins: 0,
       losses: 0,
