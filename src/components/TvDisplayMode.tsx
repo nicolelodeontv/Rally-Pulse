@@ -173,7 +173,7 @@ export const TvDisplayMode: React.FC = () => {
               className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 transition active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Next Round</span>
+              <span>Next Game</span>
             </button>
           ) : (
             <button
