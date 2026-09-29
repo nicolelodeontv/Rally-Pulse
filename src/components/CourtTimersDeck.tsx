@@ -51,7 +51,7 @@ export const CourtTimersDeck: React.FC<CourtTimersDeckProps> = () => {
   // Active matches in the current round mapped by courtId
   const matchByCourtId = new Map(currentRound?.matches.map((m) => [m.courtId, m]) || []);
   const activeRunningCourts = Object.values(courtTimers).filter((t) => t.isRunning).length;
-  const totalCourtsCount = courts.length;
+  const totalCourtsCount = settings.courtCount;
 
   return (
     <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-4">
@@ -84,8 +84,8 @@ export const CourtTimersDeck: React.FC<CourtTimersDeckProps> = () => {
           {/* Quick Court Count Stepper (Support for Many Courts / "Daghan of Courts") */}
           <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl p-0.5">
             <button
-              onClick={() => updateCourtCount(Math.max(1, courts.length - 1))}
-              disabled={courts.length <= 1}
+              onClick={() => updateCourtCount(Math.max(1, settings.courtCount - 1))}
+              disabled={settings.courtCount <= 1}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-40 disabled:hover:text-slate-400 transition cursor-pointer"
               title="Remove a court"
             >
@@ -95,8 +95,8 @@ export const CourtTimersDeck: React.FC<CourtTimersDeckProps> = () => {
               {courts.length} {courts.length === 1 ? 'Court' : 'Courts'}
             </span>
             <button
-              onClick={() => updateCourtCount(Math.min(8, courts.length + 1))}
-              disabled={courts.length >= 8}
+              onClick={() => updateCourtCount(Math.min(8, settings.courtCount + 1))}
+              disabled={settings.courtCount >= 8}
               className="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:hover:text-emerald-400 transition cursor-pointer"
               title="Add another court (independent timer added)"
             >
