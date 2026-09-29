@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Court, CourtTimerState, Match, Player, Round, SessionSettings, ActiveTab, SkillLevel } from '../types';
+import { Court, CourtTimerState, Match, Player, Round, SessionSettings, ActiveTab, SkillLevel, ShuffleOptions, SessionRecap } from '../types';
+import { buildSessionRecap } from '../utils/sessionAnalytics';
 import { generateRotationRound, applyMatchResults } from '../utils/rotationAlgorithm';
 import { audioSynth, triggerVibration, wakeLockManager } from '../utils/hardware';
 import { triggerConfetti } from '../utils/confetti';
@@ -24,6 +25,11 @@ const DEFAULT_SETTINGS: SessionSettings = {
   wakeLockEnabled: true,
   autoRotateEnabled: false,
   autoRotateBufferSeconds: 5,
+  shuffleDefaults: {
+    avoidRepeatPartners: true,
+    equalizeTeamRatings: true,
+    forceMixedDoubles: false,
+  },
   timerMode: 'count_up',
   timerType: 'independent',
 };
@@ -63,6 +69,7 @@ interface SessionContextType {
   setActiveRecapMatch: (match: Match | null) => void;
   recapPlayers: Player[] | null;
   setRecapPlayers: (players: Player[] | null) => void;
+  sessionEnded: boolean;
   // Actions
   addPlayer: (name: string, skillLevel: SkillLevel) => void;
   updatePlayer: (player: Player) => void;
@@ -77,7 +84,11 @@ interface SessionContextType {
   generateNextRound: () => void;
   recordMatchScore: (matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null) => void;
   swapPlayers: (player1Id: string, player2Id: string) => void;
+  removePlayerFromSlot: (playerId: string) => void;
+  reshuffleCurrentRound: (options: ShuffleOptions) => void;
   completeCurrentRound: () => void;
+  endSession: () => void;
+  getSessionRecap: () => SessionRecap;
   startTimer: () => void;
   pauseTimer: () => void;
   resetTimer: () => void;
@@ -138,6 +149,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isAttendanceSheetOpen, setIsAttendanceSheetOpen] = useState(false);
   const [activeRecapMatch, setActiveRecapMatch] = useState<Match | null>(null);
   const [recapPlayers, setRecapPlayers] = useState<Player[] | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   // Auto-rotate state
   const [autoRotateCountdown, setAutoRotateCountdown] = useState<number | null>(null);
@@ -278,6 +290,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSettings({ ...loadedSettings, courtCount });
         setCourts(loadedCourts);
         setRounds(loadedRounds);
+        setSessionEnded(parsed.sessionEnded === true);
         if (typeof parsed.timerSeconds === 'number') setTimerSeconds(parsed.timerSeconds);
         if (parsed.courtTimers && typeof parsed.courtTimers === 'object') {
           setCourtTimers(initCourtTimers(loadedCourts, loadedSettings.matchDurationMinutes, loadedSettings.timerMode, parsed.courtTimers));
@@ -337,12 +350,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentRound,
         timerSeconds,
         courtTimers,
+        sessionEnded,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     } catch (e) {
       console.warn('LocalStorage save error:', e);
     }
-  }, [players, settings, courts, rounds, currentRound, timerSeconds, courtTimers]);
+  }, [players, settings, courts, rounds, currentRound, timerSeconds, courtTimers, sessionEnded]);
 
   // Deep-link / QR Code URL detection on page load
   useEffect(() => {
@@ -1308,6 +1322,53 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [currentRound, settings.soundEnabled, settings.vibrationEnabled]);
 
+  // Remove a player from the current court assignments and return them to the bench.
+  const removePlayerFromSlot = useCallback((playerId: string) => {
+    setCurrentRound((prev) => {
+      if (!prev) return null;
+      const matches = prev.matches.map((m) => ({
+        ...m,
+        team1: [...m.team1] as [string, string],
+        team2: [...m.team2] as [string, string],
+      }));
+      matches.forEach((m) => {
+        if (m.team1[0] === playerId) m.team1[0] = '';
+        if (m.team1[1] === playerId) m.team1[1] = '';
+        if (m.team2[0] === playerId) m.team2[0] = '';
+        if (m.team2[1] === playerId) m.team2[1] = '';
+      });
+      const restingPlayerIds = playersRef.current
+        .filter((p) => !matches.some((m) => [...m.team1, ...m.team2].includes(p.id)))
+        .map((p) => p.id);
+      return { ...prev, matches, restingPlayerIds };
+    });
+  }, []);
+
+  const reshuffleCurrentRound = useCallback((options: ShuffleOptions) => {
+    const activeRound = currentRoundRef.current;
+    if (!activeRound) return;
+    const activePlayers = playersRef.current.filter((p) => p.status === 'active');
+    if (activePlayers.length < 4) return;
+    const inProgress = activeRound.matches.some((m) => isMatchInProgress(m, courtTimersRef.current[m.courtId]));
+    if (inProgress) return;
+
+    try {
+      const previousCompletedRound = activeRound.completed ? activeRound : roundsRef.current.find((r) => r.completed) || null;
+      const { round } = generateRotationRound(
+        playersRef.current,
+        courtsRef.current,
+        settingsRef.current.rotationPreset || settingsRef.current.rotationStrategy,
+        activeRound.roundNumber,
+        previousCompletedRound,
+        settingsRef.current.consecutiveWinLimit || 2,
+        options
+      );
+      setCurrentRound(round);
+    } catch (error) {
+      console.error('Unable to reshuffle current round:', error);
+    }
+  }, []);
+
   // Swap any two players
   const swapPlayers = useCallback((p1Id: string, p2Id: string) => {
     if (!currentRound || p1Id === p2Id) return;
@@ -1378,7 +1439,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Complete current round
   const completeCurrentRound = useCallback(() => {
-    if (!currentRound) return;
+    if (!currentRound || sessionEnded) return;
 
     const unappliedMatches = currentRound.matches.filter((m) => m.completed && !m.statsApplied);
     const updatedPlayers = unappliedMatches.length > 0 ? applyMatchResults(players, unappliedMatches) : players;
@@ -1415,7 +1476,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {
       setCurrentRound(null);
     }
-  }, [currentRound, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.consecutiveWinLimit, resetTimer]);
+  }, [currentRound, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.consecutiveWinLimit, resetTimer, sessionEnded]);
 
   const updateSettings = useCallback((newSettings: Partial<SessionSettings>) => {
     setSettings((prev) => {
@@ -1446,7 +1507,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
+  const endSession = useCallback(() => {
+    setSessionEnded(true);
+    setCourtTimers((prev) => Object.fromEntries(Object.entries(prev).map(([id, timer]) => [id, { ...timer, isRunning: false }]))));
+    setIsTimerRunning(false);
+  }, []);
+
+  const getSessionRecap = useCallback(() => {
+    return buildSessionRecap(playersRef.current, roundsRef.current, currentRoundRef.current);
+  }, []);
+
   const resetSession = useCallback(() => {
+    setSessionEnded(false);
     setPlayers(DEFAULT_PLAYERS);
     setSettings(DEFAULT_SETTINGS);
     const newCourts = buildCourts(DEFAULT_SETTINGS.courtCount, DEFAULT_SETTINGS.courtNames);
@@ -1524,6 +1596,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveRecapMatch,
         recapPlayers,
         setRecapPlayers,
+        sessionEnded,
         addPlayer,
         updatePlayer,
         togglePlayerStatus,
@@ -1537,7 +1610,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         generateNextRound,
         recordMatchScore,
         swapPlayers,
+        removePlayerFromSlot,
+        reshuffleCurrentRound,
         completeCurrentRound,
+        endSession,
+        getSessionRecap,
         startTimer,
         pauseTimer,
         resetTimer,
