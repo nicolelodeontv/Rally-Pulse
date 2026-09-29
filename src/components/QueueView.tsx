@@ -1,9 +1,9 @@
 import React from 'react';
 import { useSession } from '../context/SessionContext';
-import { Trophy, History, Users, Clock, CheckCircle } from 'lucide-react';
+import { Trophy, History, Users, Clock, CheckCircle, Share2 } from 'lucide-react';
 
 export const QueueView: React.FC = () => {
-  const { players, rounds, currentRound, completedGamesCount } = useSession();
+  const { players, rounds, currentRound, setActiveRecapMatch } = useSession();
 
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -14,6 +14,12 @@ export const QueueView: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
+  // Count total completed games logged across all rounds
+  const totalCompletedGames = rounds.reduce(
+    (acc, r) => acc + r.matches.filter((m) => m.completed).length,
+    0
+  );
+
   return (
     <div className="space-y-6 pb-28 md:pb-12 max-w-4xl mx-auto">
       {/* Header */}
@@ -21,12 +27,12 @@ export const QueueView: React.FC = () => {
         <div>
           <h1 className="text-xl md:text-2xl font-black text-white">Queue & Match History</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Monitor players on-deck and review past round outcomes.
+            Monitor players on-deck and review past game outcomes.
           </p>
         </div>
         <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-slate-300">
           <Clock className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{completedGamesCount} Games Logged</span>
+          <span>{totalCompletedGames} {totalCompletedGames === 1 ? 'Game' : 'Games'} Logged</span>
         </div>
       </div>
 
@@ -37,9 +43,9 @@ export const QueueView: React.FC = () => {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white">On Deck (Next Round Priority)</h2>
+            <h2 className="text-base font-bold text-white">On Deck (Next Game Priority)</h2>
             <p className="text-xs text-slate-400">
-              Active players currently benched who will be placed first into the upcoming round.
+              Active players currently benched who will be placed first into the upcoming game.
             </p>
           </div>
         </div>
@@ -82,7 +88,7 @@ export const QueueView: React.FC = () => {
         )}
       </div>
 
-      {/* Completed Rounds History */}
+      {/* Completed Games History */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-emerald-400" />
@@ -92,7 +98,7 @@ export const QueueView: React.FC = () => {
         {rounds.length === 0 ? (
           <div className="text-center py-12 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 p-6">
             <CheckCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <h4 className="text-sm font-bold text-slate-300">No Completed Rounds Yet</h4>
+            <h4 className="text-sm font-bold text-slate-300">No Completed Games Yet</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
               Finish matches on the Live screen and tap "Next Game" to log completed game scores and update player records.
             </p>
@@ -106,14 +112,14 @@ export const QueueView: React.FC = () => {
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-xs">
-                    Round #{round.roundNumber}
+                    Game #{round.roundNumber}
                   </span>
                   <span className="text-xs text-slate-400 font-mono-nums">
                     {new Date(round.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 <span className="text-xs font-semibold text-slate-400">
-                  {round.matches.length} Court{round.matches.length > 1 ? 's' : ''}
+                  {round.matches.length} {round.matches.length === 1 ? 'Court' : 'Courts'}
                 </span>
               </div>
 
@@ -163,6 +169,16 @@ export const QueueView: React.FC = () => {
                           <span className="font-mono-nums font-black text-sm">{m.team2Score}</span>
                         </div>
                       </div>
+
+                      {/* Share Match Receipt Button */}
+                      <button
+                        onClick={() => setActiveRecapMatch(m)}
+                        className="mt-2.5 w-full min-h-[36px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-emerald-400 hover:text-emerald-300 border border-zinc-800 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
+                        title="View & share match receipt"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Share Match Recap</span>
+                      </button>
                     </div>
                   );
                 })}

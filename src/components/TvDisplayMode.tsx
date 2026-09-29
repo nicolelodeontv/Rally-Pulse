@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext';
-import { PickleballCourt } from './PickleballCourt';
+import { PickleballCourt, formatSkillBadge } from './PickleballCourt';
+import { audioSynth } from '../utils/hardware';
 import {
   X,
   Play,
@@ -10,6 +11,13 @@ import {
   Users,
   Maximize2,
   RefreshCw,
+  Clock,
+  Radio,
+  Volume2,
+  VolumeX,
+  Sun,
+  Shield,
+  Zap,
 } from 'lucide-react';
 
 export const TvDisplayMode: React.FC = () => {
@@ -26,11 +34,18 @@ export const TvDisplayMode: React.FC = () => {
     generateNextRound,
     completeCurrentRound,
     settings,
+    updateSettings,
     toggleAutoRotate,
     autoRotateCountdown,
     executeAutoRotateNow,
     cancelAutoRotate,
+    courtTimers,
+    startAllCourtTimers,
+    pauseAllCourtTimers,
+    getEstimatedWaitMinutes,
   } = useSession();
+
+  const [calloutFlash, setCalloutFlash] = useState<string | null>(null);
 
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -43,6 +58,9 @@ export const TvDisplayMode: React.FC = () => {
   const isTimeUp = isCountUp ? timerSeconds >= targetSeconds && timerSeconds > 0 : timerSeconds === 0;
   const isLowTime = !isCountUp && timerSeconds <= 60 && timerSeconds > 0;
 
+  // Active running court count
+  const activeRunningCourtCount = Object.values(courtTimers).filter((t) => t.isRunning).length;
+
   // Next up on-deck players
   const onDeckPlayers = currentRound
     ? currentRound.restingPlayerIds
@@ -50,8 +68,19 @@ export const TvDisplayMode: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
-  const visibleMatches = currentRound?.matches.filter((match) => match.courtNumber <= settings.courtCount) ?? [];
-  const allMatchesFinished = visibleMatches.length > 0 && visibleMatches.every((m) => m.completed);
+  const allMatchesFinished = currentRound?.matches.every((m) => m.completed) ?? false;
+
+  // Visual callout cue when round changes or completes
+  useEffect(() => {
+    if (currentRound) {
+      setCalloutFlash(`Round #${currentRound.roundNumber} is Live!`);
+      if (settings.soundEnabled) {
+        audioSynth.playChime();
+      }
+      const timer = setTimeout(() => setCalloutFlash(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentRound?.roundNumber]);
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -62,7 +91,26 @@ export const TvDisplayMode: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col p-4 md:p-8 overflow-y-auto select-none">
+    <div
+      className={`fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto select-none transition-all ${
+        settings.outdoorHighContrast
+          ? 'bg-black text-white'
+          : 'bg-slate-950 text-white'
+      }`}
+    >
+      {/* Live Audio / Visual Callout Flash Banner */}
+      {calloutFlash && (
+        <div className="mb-4 bg-emerald-500 text-slate-950 px-6 py-3 rounded-2xl shadow-2xl flex items-center justify-between font-black text-base md:text-lg animate-bounce border-2 border-white">
+          <div className="flex items-center gap-3">
+            <Radio className="w-6 h-6 animate-pulse text-slate-950" />
+            <span>{calloutFlash} — Players to your assigned courts!</span>
+          </div>
+          <span className="text-xs uppercase bg-slate-950 text-emerald-400 px-3 py-1 rounded-full">
+            Court Callout
+          </span>
+        </div>
+      )}
+
       {/* High-visibility Auto-Rotate Countdown TV Alert Banner */}
       {autoRotateCountdown !== null && (
         <div className="mb-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 border-2 border-white p-4 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
@@ -70,7 +118,7 @@ export const TvDisplayMode: React.FC = () => {
             <RefreshCw className="w-8 h-8 animate-spin" />
             <div>
               <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">
-                Match Time Expired — Auto-Rotating in <span className="underline font-mono-nums text-3xl font-black">{autoRotateCountdown}s</span>
+                Match Finished — Auto-Rotating in <span className="underline font-mono-nums text-3xl font-black">{autoRotateCountdown}s</span>
               </h2>
               <p className="text-xs md:text-sm font-bold text-slate-900">
                 Generating fresh fair pairings and starting the next match timer automatically...
@@ -94,7 +142,7 @@ export const TvDisplayMode: React.FC = () => {
         </div>
       )}
 
-      {/* Top TV Bar: High-contrast clock and round banner */}
+      {/* Top Fence Board Bar: High-contrast clock and round banner */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-4 border-b-2 border-slate-800">
         {/* Left: Branding & Round Number */}
         <div className="flex items-center gap-3">
@@ -104,9 +152,9 @@ export const TvDisplayMode: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase font-black tracking-widest text-emerald-400">
-                Gym Court Display
+                Fence Board Display
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               {currentRound ? `Round ${currentRound.roundNumber}` : 'Next Round Ready'}
@@ -152,16 +200,41 @@ export const TvDisplayMode: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Auto-Rotate, Next Game Button & Exit TV Mode */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Right: Controls & Exit */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sound Buzzer Alert Toggle */}
+          <button
+            onClick={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
+            className={`p-3 rounded-xl border font-bold transition cursor-pointer ${
+              settings.soundEnabled
+                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                : 'bg-slate-900 border-slate-800 text-slate-500'
+            }`}
+            title={`Audio Chimes: ${settings.soundEnabled ? 'ON' : 'OFF'}`}
+          >
+            {settings.soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+
+          {/* High Contrast Sunlight Toggle */}
+          <button
+            onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
+            className={`p-3 rounded-xl border font-bold transition cursor-pointer ${
+              settings.outdoorHighContrast
+                ? 'bg-amber-400 text-slate-950 border-amber-300'
+                : 'bg-slate-900 border-slate-800 text-slate-400'
+            }`}
+            title="Outdoor Sunlight High Contrast Theme"
+          >
+            <Sun className="w-5 h-5" />
+          </button>
+
           <button
             onClick={toggleAutoRotate}
-            className={`flex items-center gap-1.5 px-3 py-3 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-3 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
               settings.autoRotateEnabled
                 ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-400 shadow-md shadow-emerald-500/20'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
             }`}
-            title="Auto-Rotate Mode"
           >
             <RefreshCw className={`w-4 h-4 ${settings.autoRotateEnabled ? 'text-emerald-400 animate-spin-slow' : 'text-slate-400'}`} />
             <span>Auto: {settings.autoRotateEnabled ? 'ON' : 'OFF'}</span>
@@ -197,7 +270,7 @@ export const TvDisplayMode: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 font-bold text-xs transition active:scale-95 cursor-pointer"
           >
             <X className="w-4 h-4" />
-            <span>Exit TV Mode</span>
+            <span>Exit Kiosk</span>
           </button>
         </div>
       </div>
@@ -214,15 +287,20 @@ export const TvDisplayMode: React.FC = () => {
                 : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
             }`}
           >
-            {visibleMatches.map((match) => (
-              <PickleballCourt
-                key={match.id}
-                match={match}
-                playersMap={playerMap}
-                onRecordScore={recordMatchScore}
-                isTvMode={true}
-              />
-            ))}
+            {currentRound.matches
+              .filter((m) => m.courtNumber <= settings.courtCount)
+              .map((match) => (
+                <PickleballCourt
+                  key={match.id}
+                  courtId={match.courtId}
+                  courtNumber={match.courtNumber}
+                  courtName={match.courtName}
+                  match={match}
+                  playersMap={playerMap}
+                  onRecordScore={recordMatchScore}
+                  isTvMode={true}
+                />
+              ))}
           </div>
         ) : (
           <div className="text-center py-24">
@@ -242,21 +320,30 @@ export const TvDisplayMode: React.FC = () => {
         <div className="mt-auto pt-3 border-t-2 border-slate-800 flex items-center gap-4 bg-slate-900/80 rounded-2xl px-5 py-3">
           <div className="flex items-center gap-2 text-amber-400 font-black text-sm uppercase tracking-wider shrink-0">
             <Users className="w-5 h-5" />
-            <span>On Deck (Next Up):</span>
+            <span>🟡 On Deck (Next Up):</span>
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto py-1">
-            {onDeckPlayers.map((player) => (
-              <div
-                key={player.id}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 border border-slate-700 font-bold text-xs text-slate-100 whitespace-nowrap shadow-sm"
-              >
-                <span>{player.name}</span>
-                <span className="font-mono-nums text-[10px] text-emerald-400 font-extrabold bg-slate-900 px-1.5 py-0.5 rounded-full">
-                  {player.skillLevel.toFixed(1)}
-                </span>
-              </div>
-            ))}
+            {onDeckPlayers.map((player, idx) => {
+              const badge = formatSkillBadge(player.skillLevel, settings.skillDisplayMode);
+              const estWait = getEstimatedWaitMinutes(idx);
+
+              return (
+                <div
+                  key={player.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 font-bold text-xs text-slate-100 whitespace-nowrap shadow-sm"
+                >
+                  <span className="font-extrabold text-white">{player.name}</span>
+                  <span className={`font-mono-nums text-[10px] font-extrabold px-1.5 py-0.5 rounded-full border ${badge.bg}`}>
+                    {badge.label}
+                  </span>
+                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono-nums flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>~{estWait}m</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

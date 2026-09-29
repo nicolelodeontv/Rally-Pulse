@@ -1,45 +1,37 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Court, CourtTimerState, Match, Player, Round, SessionSettings, ActiveTab } from '../types';
+import { Court, CourtTimerState, Match, Player, Round, SessionSettings, ActiveTab, SkillLevel } from '../types';
 import { generateRotationRound, applyMatchResults } from '../utils/rotationAlgorithm';
 import { audioSynth, triggerVibration, wakeLockManager } from '../utils/hardware';
 import { triggerConfetti } from '../utils/confetti';
 
 const STORAGE_KEY = 'rallypulse_session_v2';
 
-const DEFAULT_PLAYERS: Player[] = [
-  { id: 'p_1', name: 'Alex Rivera', skillLevel: 4.0, status: 'active', gamesPlayed: 2, wins: 2, losses: 0, pointsWon: 22, pointsLost: 15, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_2', name: 'Sammy Chen', skillLevel: 3.5, status: 'active', gamesPlayed: 2, wins: 1, losses: 1, pointsWon: 19, pointsLost: 20, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_3', name: 'Taylor Brooks', skillLevel: 3.5, status: 'active', gamesPlayed: 2, wins: 2, losses: 0, pointsWon: 22, pointsLost: 14, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_4', name: 'Jordan Hayes', skillLevel: 4.5, status: 'active', gamesPlayed: 2, wins: 1, losses: 1, pointsWon: 20, pointsLost: 18, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_5', name: 'Morgan Vance', skillLevel: 3.0, status: 'active', gamesPlayed: 1, wins: 0, losses: 1, pointsWon: 7, pointsLost: 11, consecutiveRests: 1, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_6', name: 'Riley Martinez', skillLevel: 3.5, status: 'active', gamesPlayed: 2, wins: 1, losses: 1, pointsWon: 18, pointsLost: 19, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_7', name: 'Casey Dupont', skillLevel: 4.0, status: 'active', gamesPlayed: 1, wins: 1, losses: 0, pointsWon: 11, pointsLost: 8, consecutiveRests: 1, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_8', name: 'Devon Kim', skillLevel: 3.0, status: 'active', gamesPlayed: 2, wins: 0, losses: 2, pointsWon: 14, pointsLost: 22, consecutiveRests: 0, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_9', name: 'Jamie Foster', skillLevel: 3.5, status: 'active', gamesPlayed: 1, wins: 0, losses: 1, pointsWon: 6, pointsLost: 11, consecutiveRests: 1, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_10', name: 'Quinn Bailey', skillLevel: 4.0, status: 'active', gamesPlayed: 1, wins: 1, losses: 0, pointsWon: 11, pointsLost: 9, consecutiveRests: 1, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_11', name: 'Avery Walsh', skillLevel: 3.0, status: 'resting', gamesPlayed: 0, wins: 0, losses: 0, pointsWon: 0, pointsLost: 0, consecutiveRests: 2, partnerHistory: {}, opponentHistory: {} },
-  { id: 'p_12', name: 'Skyler Patel', skillLevel: 3.5, status: 'resting', gamesPlayed: 0, wins: 0, losses: 0, pointsWon: 0, pointsLost: 0, consecutiveRests: 2, partnerHistory: {}, opponentHistory: {} },
-];
+const DEFAULT_PLAYERS: Player[] = [];
 
 const DEFAULT_SETTINGS: SessionSettings = {
   courtCount: 2,
   courtNames: ['Court 1', 'Court 2'],
   matchDurationMinutes: 12,
   pointsToWin: 11,
+  winByTwo: true,
   rotationStrategy: 'fair_social',
+  rotationPreset: '4_in_4_out',
+  skillDisplayMode: 'dupr',
+  outdoorHighContrast: false,
+  consecutiveWinLimit: 2,
   soundEnabled: true,
   vibrationEnabled: true,
   wakeLockEnabled: true,
   autoRotateEnabled: false,
   autoRotateBufferSeconds: 5,
   timerMode: 'count_up',
+  timerType: 'independent',
 };
 
 interface SessionContextType {
   players: Player[];
   courts: Court[];
   rounds: Round[];
-  completedGamesCount: number;
   currentRound: Round | null;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
@@ -52,21 +44,32 @@ interface SessionContextType {
   setIsAttendanceSheetOpen: (open: boolean) => void;
   autoRotateCountdown: number | null;
   autoRotateNotice: string | null;
-  // Per-Court Independent Timers
+  // Per-Court Independent Timers & Warm-Up
   courtTimers: Record<string, CourtTimerState>;
   startCourtTimer: (courtId: string) => void;
   pauseCourtTimer: (courtId: string) => void;
   resetCourtTimer: (courtId: string) => void;
   adjustCourtTimer: (courtId: string, seconds: number) => void;
+  startWarmupTimer: (courtId: string, minutes?: number) => void;
+  skipWarmup: (courtId: string) => void;
   startAllCourtTimers: () => void;
   pauseAllCourtTimers: () => void;
   resetAllCourtTimers: () => void;
+  // Dynamic Wait Time Engine
+  averageMatchDurationMinutes: number;
+  getEstimatedWaitMinutes: (queueIndex: number) => number;
+  // Match Share & Recap Modal
+  activeRecapMatch: Match | null;
+  setActiveRecapMatch: (match: Match | null) => void;
   // Actions
-  addPlayer: (name: string, skillLevel: Player['skillLevel']) => void;
+  addPlayer: (name: string, skillLevel: SkillLevel) => void;
   updatePlayer: (player: Player) => void;
   togglePlayerStatus: (playerId: string) => void;
   deletePlayer: (playerId: string) => void;
-  bulkAddPlayers: (namesText: string, defaultSkill: Player['skillLevel']) => void;
+  bulkAddPlayers: (namesText: string, defaultSkill: SkillLevel) => void;
+  assignPlayerToSlot: (courtId: string, team: 'team1' | 'team2', slotIndex: 0 | 1, playerId: string) => void;
+  createAndAssignPlayer: (courtId: string, team: 'team1' | 'team2', slotIndex: 0 | 1, name: string, skillLevel: SkillLevel) => void;
+  syncCurrentRoundWithRoster: () => void;
   updateCourtCount: (count: number) => void;
   updateCourtName: (courtId: string, name: string) => void;
   generateNextRound: () => void;
@@ -97,41 +100,6 @@ function buildCourts(count: number, names?: string[]): Court[] {
   }));
 }
 
-function reconcileRoundCourtCount(round: Round | null, courtCount: number): Round | null {
-  if (!round) return null;
-
-  const removedMatches = round.matches.filter((match) => match.courtNumber > courtCount);
-  if (removedMatches.length === 0) {
-    return round;
-  }
-
-  const remainingMatches = round.matches.filter((match) => match.courtNumber <= courtCount);
-  const remainingPlayerIds = new Set(
-    remainingMatches.flatMap((match) => [...match.team1, ...match.team2])
-  );
-
-  const removedPlayerIds = removedMatches.flatMap((match) => [
-    ...match.team1,
-    ...match.team2,
-  ]);
-
-  const nextRestingIds: string[] = [];
-  const seen = new Set<string>();
-
-  for (const playerId of [...removedPlayerIds, ...round.restingPlayerIds]) {
-    if (remainingPlayerIds.has(playerId) || seen.has(playerId)) continue;
-    seen.add(playerId);
-    nextRestingIds.push(playerId);
-  }
-
-  return {
-    ...round,
-    matches: remainingMatches,
-    restingPlayerIds: nextRestingIds,
-    completed: remainingMatches.length > 0 && remainingMatches.every((match) => match.completed),
-  };
-}
-
 function initCourtTimers(
   courtsList: Court[],
   durationMins: number,
@@ -150,6 +118,13 @@ function initCourtTimers(
   return res;
 }
 
+/** Check whether a match is in-progress (scores recorded > 0 or timer running) */
+function isMatchInProgress(match: Match, timerState?: CourtTimerState): boolean {
+  if (match.team1Score > 0 || match.team2Score > 0 || match.completed) return true;
+  if (timerState && timerState.isRunning && timerState.seconds > 0) return true;
+  return false;
+}
+
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [settings, setSettings] = useState<SessionSettings>(DEFAULT_SETTINGS);
@@ -159,12 +134,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeTab, setActiveTab] = useState<ActiveTab>('live');
   const [isTvMode, setIsTvMode] = useState<boolean>(false);
   const [isAttendanceSheetOpen, setIsAttendanceSheetOpen] = useState(false);
+  const [activeRecapMatch, setActiveRecapMatch] = useState<Match | null>(null);
 
   // Auto-rotate state
   const [autoRotateCountdown, setAutoRotateCountdown] = useState<number | null>(null);
   const [autoRotateNotice, setAutoRotateNotice] = useState<string | null>(null);
 
-  // Global Timer state (starts from 0 for count_up)
+  // Global Timer state
   const [timerSeconds, setTimerSeconds] = useState<number>(() =>
     DEFAULT_SETTINGS.timerMode === 'count_up' ? 0 : DEFAULT_SETTINGS.matchDurationMinutes * 60
   );
@@ -195,59 +171,121 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const roundsRef = useRef(rounds);
   roundsRef.current = rounds;
 
+  // Helper to validate and repair current round if needed
+  const autoRepairOrRegenerateRound = useCallback((
+    currentRoster: Player[],
+    currentCourtsList: Court[],
+    currentSettingsObj: SessionSettings,
+    existingRound: Round | null,
+    force = false
+  ): Round | null => {
+    const validPlayerIds = new Set(currentRoster.map((p) => p.id));
+    const activeRoster = currentRoster.filter((p) => p.status === 'active');
+
+    // 1. If no round exists, or force is true
+    if (!existingRound || force) {
+      if (activeRoster.length < 4) {
+        return {
+          id: `round_${existingRound?.roundNumber || 1}_${Date.now()}`,
+          roundNumber: existingRound?.roundNumber || 1,
+          timestamp: Date.now(),
+          matches: [],
+          restingPlayerIds: currentRoster.map((p) => p.id),
+          completed: false,
+        };
+      }
+      try {
+        const { round } = generateRotationRound(
+          currentRoster,
+          currentCourtsList,
+          currentSettingsObj.rotationStrategy,
+          existingRound?.roundNumber || 1
+        );
+        return round;
+      } catch {
+        return null;
+      }
+    }
+
+    // 2. Check if any matches have invalid/deleted IDs or missing players
+    let hasBrokenPlayer = false;
+    let anyMatchStarted = false;
+
+    existingRound.matches.forEach((m) => {
+      const allFour = [...m.team1, ...m.team2];
+      if (allFour.some((id) => !validPlayerIds.has(id))) {
+        hasBrokenPlayer = true;
+      }
+      if (m.team1Score > 0 || m.team2Score > 0 || m.completed) {
+        anyMatchStarted = true;
+      }
+    });
+
+    // 3. If unstarted and has broken players OR empty matches while active >= 4, re-generate clean round
+    if (!anyMatchStarted && (hasBrokenPlayer || (existingRound.matches.length === 0 && activeRoster.length >= 4))) {
+      try {
+        const { round } = generateRotationRound(
+          currentRoster,
+          currentCourtsList,
+          currentSettingsObj.rotationStrategy,
+          existingRound.roundNumber
+        );
+        return round;
+      } catch {
+        return existingRound;
+      }
+    }
+
+    // 4. If match is in progress or already valid, update restingPlayerIds to match current roster
+    const activeAssignedIds = new Set<string>();
+    existingRound.matches.forEach((m) => {
+      [...m.team1, ...m.team2].forEach((id) => activeAssignedIds.add(id));
+    });
+
+    const updatedResting = currentRoster
+      .filter((p) => !activeAssignedIds.has(p.id))
+      .map((p) => p.id);
+
+    return {
+      ...existingRound,
+      restingPlayerIds: updatedResting,
+    };
+  }, []);
+
   // 1. Initial Load from LocalStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        const persistedCourts = Array.isArray(parsed.courts) ? parsed.courts : [];
-        const mergedSettings = {
-          ...DEFAULT_SETTINGS,
-          ...(parsed.settings || {}),
-        };
-        const persistedCourtNames = persistedCourts.map((court: Court) => court.name);
-        const reconciledCourtNames = Array.from(
-          { length: Math.max(1, Math.min(12, Number(mergedSettings.courtCount) || DEFAULT_SETTINGS.courtCount)) },
-          (_, idx) =>
-            persistedCourtNames[idx] ||
-            mergedSettings.courtNames?.[idx] ||
-            `Court ${idx + 1}`
-        );
-        const loadedCourtCount = reconciledCourtNames.length;
-        const loadedCourts = buildCourts(loadedCourtCount, reconciledCourtNames);
-        const loadedRound = reconcileRoundCourtCount(
-          parsed.currentRound && typeof parsed.currentRound === 'object' ? parsed.currentRound : null,
-          loadedCourtCount
-        );
+        let loadedPlayers = parsed.players && Array.isArray(parsed.players) ? parsed.players : DEFAULT_PLAYERS;
+        // Purge old mock sample players if previously stored
+        const hasSampleMockData = loadedPlayers.some((p: Player) => p.id === 'p_1' && p.name === 'Alex Rivera');
+        if (hasSampleMockData) {
+          loadedPlayers = [];
+        }
 
-        if (parsed.players && Array.isArray(parsed.players)) setPlayers(parsed.players);
-        setSettings({
-          ...mergedSettings,
-          courtCount: loadedCourtCount,
-          courtNames: loadedCourts.map((court) => court.name),
-        });
+        const loadedSettings = parsed.settings ? { ...DEFAULT_SETTINGS, ...parsed.settings } : DEFAULT_SETTINGS;
+        const courtCount = typeof loadedSettings.courtCount === 'number' ? loadedSettings.courtCount : DEFAULT_SETTINGS.courtCount;
+        const loadedCourts = buildCourts(courtCount, loadedSettings.courtNames);
+        const loadedRounds = hasSampleMockData ? [] : (parsed.rounds && Array.isArray(parsed.rounds) ? parsed.rounds : []);
+        const loadedCurrentRound = hasSampleMockData ? null : (parsed.currentRound || null);
+
+        setPlayers(loadedPlayers);
+        setSettings({ ...loadedSettings, courtCount });
         setCourts(loadedCourts);
-        if (parsed.rounds && Array.isArray(parsed.rounds)) setRounds(parsed.rounds);
-        setCurrentRound(loadedRound);
+        setRounds(loadedRounds);
         if (typeof parsed.timerSeconds === 'number') setTimerSeconds(parsed.timerSeconds);
         if (parsed.courtTimers && typeof parsed.courtTimers === 'object') {
-          setCourtTimers(
-            initCourtTimers(
-              loadedCourts,
-              mergedSettings.matchDurationMinutes,
-              mergedSettings.timerMode,
-              parsed.courtTimers
-            )
-          );
+          setCourtTimers(initCourtTimers(loadedCourts, loadedSettings.matchDurationMinutes, loadedSettings.timerMode, parsed.courtTimers));
+        }
+
+        // Validate and repair current round
+        if (loadedPlayers.length >= 4) {
+          const repaired = autoRepairOrRegenerateRound(loadedPlayers, loadedCourts, loadedSettings, loadedCurrentRound);
+          setCurrentRound(repaired);
         } else {
-          setCourtTimers(
-            initCourtTimers(
-              loadedCourts,
-              mergedSettings.matchDurationMinutes,
-              mergedSettings.timerMode
-            )
-          );
+          setCurrentRound(null);
         }
         return;
       }
@@ -261,7 +299,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { round } = generateRotationRound(DEFAULT_PLAYERS, initialCourts, DEFAULT_SETTINGS.rotationStrategy, 1);
       setCurrentRound(round);
     } catch {
-      // Ignore if not enough active
+      // Ignore
+    }
+  }, [autoRepairOrRegenerateRound]);
+
+  // Check for shared match recap URL parameter (?recap=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const recapParam = params.get('recap');
+      if (recapParam) {
+        const jsonStr = atob(decodeURIComponent(recapParam));
+        const decoded = JSON.parse(jsonStr);
+        if (decoded && decoded.m) {
+          setActiveRecapMatch(decoded.m);
+          if (decoded.p && Array.isArray(decoded.p) && decoded.p.length > 0) {
+            setPlayers(decoded.p);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse shared match recap URL:', e);
     }
   }, []);
 
@@ -283,6 +341,57 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [players, settings, courts, rounds, currentRound, timerSeconds, courtTimers]);
 
+  // Deep-link / QR Code URL detection on page load
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const matchParam = searchParams.get('matchId') || (window.location.pathname.startsWith('/match/') ? window.location.pathname.split('/match/')[1] : null);
+      if (matchParam) {
+        const allMatches = [...(currentRound?.matches || []), ...rounds.flatMap((r) => r.matches)];
+        const matched = allMatches.find((m) => m.id === matchParam);
+        if (matched) {
+          setActiveRecapMatch(matched);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [rounds, currentRound]);
+
+  // Auto-sync courts whenever player roster changes and matches are unstarted
+  const syncRosterToRound = useCallback((updatedRoster: Player[]) => {
+    const activeRound = currentRoundRef.current;
+    const currentCourts = courtsRef.current;
+    const currentSettings = settingsRef.current;
+    const timers = courtTimersRef.current;
+
+    // Check if any match in the round is actively in progress
+    const anyInProgress = activeRound?.matches.some((m) => isMatchInProgress(m, timers[m.courtId])) ?? false;
+
+    if (!anyInProgress) {
+      // Automatically regenerate/rebalance the unstarted round with the new roster!
+      const nextRound = autoRepairOrRegenerateRound(
+        updatedRoster,
+        currentCourts,
+        currentSettings,
+        activeRound,
+        true // force update unstarted round
+      );
+      setCurrentRound(nextRound);
+    } else if (activeRound) {
+      // Round is in progress: preserve current match players, update on-deck bench list
+      const assignedIds = new Set<string>();
+      activeRound.matches.forEach((m) => {
+        [...m.team1, ...m.team2].forEach((id) => assignedIds.add(id));
+      });
+      const newResting = updatedRoster.filter((p) => !assignedIds.has(p.id)).map((p) => p.id);
+      setCurrentRound({
+        ...activeRound,
+        restingPlayerIds: newResting,
+      });
+    }
+  }, [autoRepairOrRegenerateRound]);
+
   // Execute Auto-Rotate to cycle queue and immediately start the next match
   const executeAutoRotate = useCallback(() => {
     setAutoRotateCountdown(null);
@@ -294,7 +403,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const activePlayers = playersRef.current;
     let finalPlayers = activePlayers;
 
-    if (activeRound) {
+    if (activeRound && activeRound.matches.length > 0) {
       const updated = applyMatchResults(activePlayers, activeRound.matches);
       const activeRestingSet = new Set(activeRound.restingPlayerIds);
       finalPlayers = updated.map((p) => {
@@ -373,7 +482,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearTimeout(timer);
   }, [autoRotateCountdown]);
 
-  // 3. Countdown Timer effect & Web Audio / Vibration / Wake Lock integration
+  // 3. Global Countdown/Count-up Timer effect
   useEffect(() => {
     if (isTimerRunning) {
       if (settings.wakeLockEnabled) {
@@ -408,7 +517,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return nextSecs;
           } else {
             if (prev <= 1) {
-              // Hit 00:00!
               clearInterval(timerIntervalRef.current);
               setIsTimerRunning(false);
 
@@ -419,7 +527,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 triggerVibration([300, 100, 300, 100, 500]);
               }
 
-              // AUTO-ROTATE TRIGGER
               if (settings.autoRotateEnabled) {
                 const buffer = settings.autoRotateBufferSeconds ?? 5;
                 if (buffer <= 0) {
@@ -511,7 +618,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             for (const [cId, timer] of Object.entries(prev)) {
               if (timer.isRunning) {
-                if (isCountUp) {
+                // If in pre-game Warm-up Mode
+                if (timer.isWarmup) {
+                  const remaining = timer.warmupSecondsRemaining ?? 120;
+                  if (remaining <= 1) {
+                    // Warm-up finished! Play chime and auto-start main match stopwatch from 00:00
+                    if (settingsRef.current.soundEnabled) {
+                      audioSynth.playWhistle();
+                    }
+                    next[cId] = { seconds: 0, isRunning: true, isWarmup: false, warmupSecondsRemaining: 0 };
+                    anyStillRunning = true;
+                  } else {
+                    anyStillRunning = true;
+                    next[cId] = { ...timer, warmupSecondsRemaining: remaining - 1 };
+                  }
+                } else if (isCountUp) {
+                  // Standard open-play count-up stopwatch
                   anyStillRunning = true;
                   const nextSecs = timer.seconds + 1;
                   next[cId] = { ...timer, seconds: nextSecs };
@@ -521,6 +643,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     targetCourts.push(cObj ? cObj.name : `Court`);
                   }
                 } else {
+                  // Fixed countdown mode
                   if (timer.seconds <= 1) {
                     next[cId] = { seconds: 0, isRunning: false };
                     anyHitTarget = true;
@@ -550,7 +673,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               );
               setTimeout(() => setAutoRotateNotice(null), 5000);
 
-              // Auto-rotate trigger when independent court timers reach target
               if (settingsRef.current.autoRotateEnabled) {
                 const activeMatches = currentRoundRef.current?.matches || [];
                 const allFinished = activeMatches.length > 0 && activeMatches.every((m) => {
@@ -650,6 +772,36 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
+  const startWarmupTimer = useCallback((courtId: string, minutes = 2) => {
+    setCourtTimers((prev) => ({
+      ...prev,
+      [courtId]: {
+        seconds: 0,
+        isRunning: true,
+        isWarmup: true,
+        warmupSecondsRemaining: minutes * 60,
+      },
+    }));
+    if (settingsRef.current.soundEnabled) {
+      audioSynth.playChime();
+    }
+  }, []);
+
+  const skipWarmup = useCallback((courtId: string) => {
+    setCourtTimers((prev) => ({
+      ...prev,
+      [courtId]: {
+        seconds: 0,
+        isRunning: true,
+        isWarmup: false,
+        warmupSecondsRemaining: 0,
+      },
+    }));
+    if (settingsRef.current.soundEnabled) {
+      audioSynth.playWhistle();
+    }
+  }, []);
+
   const startAllCourtTimers = useCallback(() => {
     setAutoRotateCountdown(null);
     setCourtTimers((prev) => {
@@ -660,7 +812,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (!isCountUp && secs === 0) {
           secs = settingsRef.current.matchDurationMinutes * 60;
         }
-        next[cId] = { seconds: secs, isRunning: true };
+        next[cId] = { seconds: secs, isRunning: true, isWarmup: false };
       }
       return next;
     });
@@ -687,7 +839,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCourtTimers((prev) => {
       const next: Record<string, CourtTimerState> = {};
       for (const cId of Object.keys(prev)) {
-        next[cId] = { seconds: defaultSecs, isRunning: false };
+        next[cId] = { seconds: defaultSecs, isRunning: false, isWarmup: false, warmupSecondsRemaining: 0 };
       }
       return next;
     });
@@ -695,24 +847,121 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTimerSeconds(defaultSecs);
   }, []);
 
-  // Update court count
+  // Compute dynamic session average match duration in minutes
+  const completedMatchesList = rounds.flatMap((r) => r.matches.filter((m) => m.completed));
+  const totalCompletedSecs = completedMatchesList.reduce(
+    (acc, m) => acc + (m.durationSeconds || settings.matchDurationMinutes * 60 || 900),
+    0
+  );
+  const averageMatchDurationMinutes =
+    completedMatchesList.length > 0
+      ? Math.max(8, Math.round(totalCompletedSecs / completedMatchesList.length / 60))
+      : settings.matchDurationMinutes || 15;
+
+  // Smart Queue Wait Time Estimator Engine
+  const getEstimatedWaitMinutes = useCallback(
+    (queueIndex: number): number => {
+      const activeCourtsList = courtsRef.current.slice(0, settingsRef.current.courtCount);
+      if (activeCourtsList.length === 0) return 0;
+
+      const avgMinutes = averageMatchDurationMinutes || 15;
+      const timers = courtTimersRef.current;
+
+      // Project remaining minutes for each active court
+      const courtRemainingMinutes = activeCourtsList
+        .map((c) => {
+          const timer = timers[c.id];
+          if (!timer || !timer.isRunning) return 2; // Court finished or idle
+          const elapsedMinutes = Math.floor((timer.seconds || 0) / 60);
+          return Math.max(2, avgMinutes - elapsedMinutes);
+        })
+        .sort((a, b) => a - b);
+
+      const playersPerWave =
+        settingsRef.current.rotationPreset === '2_in_2_out_winners_stay'
+          ? Math.max(2, activeCourtsList.length * 2)
+          : Math.max(4, activeCourtsList.length * 4);
+
+      const waveIndex = Math.floor(queueIndex / playersPerWave);
+      const courtSlotIndex = queueIndex % activeCourtsList.length;
+      const baseCourtWait = courtRemainingMinutes[courtSlotIndex] || courtRemainingMinutes[0] || 4;
+
+      return baseCourtWait + waveIndex * avgMinutes;
+    },
+    [averageMatchDurationMinutes]
+  );
+
+  // Update court count (Single Source of Truth)
   const updateCourtCount = useCallback((count: number) => {
     const validCount = Math.max(1, Math.min(12, count));
-    const currentSettings = settingsRef.current;
-    const existingNames = courtsRef.current.map((court) => court.name);
-    const newCourts = buildCourts(validCount, existingNames);
-    
+    const newCourts = buildCourts(validCount, settings.courtNames);
+    const validCourtIds = new Set(newCourts.map((c) => c.id));
+
     setCourts(newCourts);
-    setCourtTimers((prev) =>
-      initCourtTimers(newCourts, currentSettings.matchDurationMinutes, currentSettings.timerMode, prev)
-    );
-    setCurrentRound((prev) => reconcileRoundCourtCount(prev, validCount));
+    setCourtTimers((prev) => initCourtTimers(newCourts, settings.matchDurationMinutes, settings.timerMode, prev));
     setSettings((prev) => ({
       ...prev,
       courtCount: validCount,
-      courtNames: newCourts.map((court) => court.name),
+      courtNames: newCourts.map((c) => c.name),
     }));
-  }, []);
+
+    const activeRound = currentRoundRef.current;
+    const currentRoster = playersRef.current;
+
+    // Identify any players on removed courts
+    const removedCourtMatches = activeRound?.matches.filter((m) => !validCourtIds.has(m.courtId)) || [];
+    const displacedPlayerIds = new Set<string>();
+    removedCourtMatches.forEach((m) => {
+      [...m.team1, ...m.team2].forEach((id) => {
+        if (id) displacedPlayerIds.add(id);
+      });
+    });
+
+    // If any players were displaced by court reduction, give them top queue priority for next game
+    if (displacedPlayerIds.size > 0) {
+      const updatedRoster = currentRoster.map((p) => {
+        if (displacedPlayerIds.has(p.id)) {
+          return {
+            ...p,
+            consecutiveRests: Math.max(2, p.consecutiveRests + 2),
+          };
+        }
+        return p;
+      });
+      setPlayers(updatedRoster);
+
+      // Re-generate or filter active round matches to only valid courts
+      try {
+        const { round } = generateRotationRound(updatedRoster, newCourts, settings.rotationStrategy, activeRound?.roundNumber || 1);
+        setCurrentRound(round);
+      } catch {
+        if (activeRound) {
+          const remainingMatches = activeRound.matches.filter((m) => validCourtIds.has(m.courtId));
+          setCurrentRound({
+            ...activeRound,
+            matches: remainingMatches,
+            restingPlayerIds: [
+              ...Array.from(displacedPlayerIds),
+              ...activeRound.restingPlayerIds.filter((id) => !displacedPlayerIds.has(id)),
+            ],
+          });
+        }
+      }
+    } else {
+      // Re-evaluate round matches for new court count if unstarted
+      const timers = courtTimersRef.current;
+      const anyInProgress = activeRound?.matches.some((m) => isMatchInProgress(m, timers[m.courtId])) ?? false;
+
+      if (!anyInProgress) {
+        try {
+          const { round } = generateRotationRound(currentRoster, newCourts, settings.rotationStrategy, activeRound?.roundNumber || 1);
+          setCurrentRound(round);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+  }, [settings.courtNames, settings.matchDurationMinutes, settings.timerMode, settings.rotationStrategy]);
 
   const updateCourtName = useCallback((courtId: string, name: string) => {
     setCourts((prev) =>
@@ -720,8 +969,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, []);
 
-  // Player management
-  const addPlayer = useCallback((name: string, skillLevel: Player['skillLevel']) => {
+  // Player management with Auto-Sync
+  const addPlayer = useCallback((name: string, skillLevel: SkillLevel) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     const newPlayer: Player = {
@@ -738,45 +987,39 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       partnerHistory: {},
       opponentHistory: {},
     };
-    setPlayers((prev) => [...prev, newPlayer]);
-  }, []);
+    const nextPlayers = [...playersRef.current, newPlayer];
+    setPlayers(nextPlayers);
+    syncRosterToRound(nextPlayers);
+  }, [syncRosterToRound]);
 
   const updatePlayer = useCallback((updated: Player) => {
-    setPlayers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    const nextPlayers = playersRef.current.map((p) => (p.id === updated.id ? updated : p));
+    setPlayers(nextPlayers);
   }, []);
 
   const togglePlayerStatus = useCallback((playerId: string) => {
-    setPlayers((prev) =>
-      prev.map((p) => {
-        if (p.id === playerId) {
-          const newStatus = p.status === 'active' ? 'resting' : 'active';
-          return {
-            ...p,
-            status: newStatus,
-            // If setting to active, give them 1 rest count credit so they get queued fairly soon
-            consecutiveRests: newStatus === 'active' ? Math.max(1, p.consecutiveRests) : p.consecutiveRests,
-          };
-        }
-        return p;
-      })
-    );
-  }, []);
+    const nextPlayers = playersRef.current.map((p) => {
+      if (p.id === playerId) {
+        const newStatus = p.status === 'active' ? 'resting' : 'active';
+        return {
+          ...p,
+          status: newStatus as Player['status'],
+          consecutiveRests: newStatus === 'active' ? Math.max(1, p.consecutiveRests) : p.consecutiveRests,
+        };
+      }
+      return p;
+    });
+    setPlayers(nextPlayers);
+    syncRosterToRound(nextPlayers);
+  }, [syncRosterToRound]);
 
   const deletePlayer = useCallback((playerId: string) => {
-    setPlayers((prev) => prev.filter((p) => p.id !== playerId));
-    // Also remove from current match if present
-    if (currentRound) {
-      setCurrentRound((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          restingPlayerIds: prev.restingPlayerIds.filter((id) => id !== playerId),
-        };
-      });
-    }
-  }, [currentRound]);
+    const nextPlayers = playersRef.current.filter((p) => p.id !== playerId);
+    setPlayers(nextPlayers);
+    syncRosterToRound(nextPlayers);
+  }, [syncRosterToRound]);
 
-  const bulkAddPlayers = useCallback((namesText: string, defaultSkill: Player['skillLevel']) => {
+  const bulkAddPlayers = useCallback((namesText: string, defaultSkill: SkillLevel) => {
     const lines = namesText
       .split('\n')
       .map((l) => l.trim())
@@ -785,7 +1028,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (lines.length === 0) return;
 
     const newPlayers: Player[] = lines.map((line, idx) => {
-      // Check if line contains skill rating like "John Doe (4.0)" or "Jane 3.5"
       let name = line;
       let skill = defaultSkill;
       const match = line.match(/(.*?)[(\s]+([2-5]\.[05]|[2-5])[)\s]*$/);
@@ -793,7 +1035,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         name = match[1].trim();
         const parsed = parseFloat(match[2]);
         if (!isNaN(parsed) && parsed >= 2.0 && parsed <= 5.0) {
-          skill = parsed as Player['skillLevel'];
+          skill = parsed as SkillLevel;
         }
       }
 
@@ -813,18 +1055,178 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     });
 
-    setPlayers((prev) => [...prev, ...newPlayers]);
+    const nextPlayers = [...playersRef.current, ...newPlayers];
+    setPlayers(nextPlayers);
+    syncRosterToRound(nextPlayers);
+  }, [syncRosterToRound]);
+
+  // Assign a player directly to a court slot
+  const assignPlayerToSlot = useCallback((
+    courtId: string,
+    team: 'team1' | 'team2',
+    slotIndex: 0 | 1,
+    playerId: string
+  ) => {
+    setCurrentRound((prev) => {
+      const courtsList = courtsRef.current;
+      const courtObj = courtsList.find((c) => c.id === courtId);
+      const courtNumber = courtObj?.courtNumber || 1;
+      const courtName = courtObj?.name || `Court ${courtNumber}`;
+
+      const roundNumber = prev?.roundNumber || 1;
+      let existingMatches = prev ? [...prev.matches] : [];
+
+      let matchIndex = existingMatches.findIndex((m) => m.courtId === courtId);
+
+      if (matchIndex === -1) {
+        // Create a new match entry for this court
+        const newMatch: Match = {
+          id: `m_${roundNumber}_${courtNumber}_${Date.now()}`,
+          courtId,
+          courtNumber,
+          courtName,
+          team1: ['', ''],
+          team2: ['', ''],
+          team1Score: 0,
+          team2Score: 0,
+          winner: null,
+          completed: false,
+        };
+        newMatch[team][slotIndex] = playerId;
+        existingMatches.push(newMatch);
+      } else {
+        const targetMatch = { ...existingMatches[matchIndex] };
+        const updatedTeam = [...targetMatch[team]] as [string, string];
+        const prevAssignedId = updatedTeam[slotIndex];
+
+        // If player is already on another court/slot in this round, clear them from old position
+        existingMatches = existingMatches.map((m) => {
+          const t1 = [...m.team1] as [string, string];
+          const t2 = [...m.team2] as [string, string];
+          if (m.courtId === courtId && team === 'team1' && slotIndex === 0) {
+            // Target slot
+          } else {
+            if (t1[0] === playerId) t1[0] = '';
+            if (t1[1] === playerId) t1[1] = '';
+            if (t2[0] === playerId) t2[0] = '';
+            if (t2[1] === playerId) t2[1] = '';
+          }
+          return { ...m, team1: t1, team2: t2 };
+        });
+
+        updatedTeam[slotIndex] = playerId;
+        targetMatch[team] = updatedTeam;
+        existingMatches[matchIndex] = targetMatch;
+      }
+
+      // Ensure player is marked active
+      setPlayers((current) =>
+        current.map((p) => (p.id === playerId && p.status === 'resting' ? { ...p, status: 'active' } : p))
+      );
+
+      // Recompute resting player IDs
+      const assignedIds = new Set<string>();
+      existingMatches.forEach((m) => {
+        [...m.team1, ...m.team2].forEach((id) => {
+          if (id) assignedIds.add(id);
+        });
+      });
+
+      const updatedResting = playersRef.current
+        .filter((p) => !assignedIds.has(p.id))
+        .map((p) => p.id);
+
+      return {
+        id: prev?.id || `round_${roundNumber}_${Date.now()}`,
+        roundNumber,
+        timestamp: prev?.timestamp || Date.now(),
+        matches: existingMatches,
+        restingPlayerIds: updatedResting,
+        completed: false,
+      };
+    });
   }, []);
+
+  // Create new player and assign directly to slot
+  const createAndAssignPlayer = useCallback((
+    courtId: string,
+    team: 'team1' | 'team2',
+    slotIndex: 0 | 1,
+    name: string,
+    skillLevel: SkillLevel
+  ) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const newPlayer: Player = {
+      id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: trimmed,
+      skillLevel,
+      status: 'active',
+      gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      pointsWon: 0,
+      pointsLost: 0,
+      consecutiveRests: 0,
+      partnerHistory: {},
+      opponentHistory: {},
+    };
+    const nextPlayers = [...playersRef.current, newPlayer];
+    setPlayers(nextPlayers);
+    assignPlayerToSlot(courtId, team, slotIndex, newPlayer.id);
+  }, [assignPlayerToSlot]);
+
+  // Sync / rebalance current round with roster
+  const syncCurrentRoundWithRoster = useCallback(() => {
+    const activeRoster = players.filter((p) => p.status === 'active');
+    if (activeRoster.length < 4) {
+      alert(`At least 4 active players are required. (Currently ${activeRoster.length} active)`);
+      return;
+    }
+    const nextRound = autoRepairOrRegenerateRound(
+      players,
+      courts,
+      settings,
+      currentRound,
+      true
+    );
+    setCurrentRound(nextRound);
+  }, [players, courts, settings, currentRound, autoRepairOrRegenerateRound]);
 
   // Generate Next Round
   const generateNextRound = useCallback(() => {
     const nextRoundNumber = (currentRound ? currentRound.roundNumber : rounds.length) + 1;
+    const prevCompletedRound = currentRound?.completed ? currentRound : rounds[0] || null;
+    const activePreset = settings.rotationPreset || settings.rotationStrategy;
     try {
-      const { round } = generateRotationRound(players, courts, settings.rotationStrategy, nextRoundNumber);
+      const { round } = generateRotationRound(
+        players,
+        courts,
+        activePreset,
+        nextRoundNumber,
+        prevCompletedRound,
+        settings.consecutiveWinLimit || 2
+      );
       setCurrentRound(round);
-      // Reset timer for next round
-      setTimerSeconds(settings.matchDurationMinutes * 60);
-      setIsTimerRunning(false);
+      // Reset and auto-start timers for next round
+      const isCountUp = settings.timerMode === 'count_up';
+      const initialSecs = isCountUp ? 0 : settings.matchDurationMinutes * 60;
+      setTimerSeconds(initialSecs);
+      setIsTimerRunning(isCountUp && round.matches.length > 0);
+
+      setCourtTimers((prev) => {
+        const next: Record<string, CourtTimerState> = {};
+        courts.forEach((c) => {
+          const hasMatch = round.matches.some((m) => m.courtId === c.id);
+          next[c.id] = {
+            seconds: initialSecs,
+            isRunning: isCountUp ? hasMatch : false,
+            isWarmup: false,
+            warmupSecondsRemaining: 0,
+          };
+        });
+        return next;
+      });
 
       if (settings.soundEnabled) {
         audioSynth.playWhistle();
@@ -832,26 +1234,36 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e: any) {
       alert(e.message || 'Cannot generate round. Please check active players.');
     }
-  }, [currentRound, rounds.length, players, courts, settings.rotationStrategy, settings.matchDurationMinutes, settings.soundEnabled]);
+  }, [currentRound, rounds, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.matchDurationMinutes, settings.soundEnabled, settings.timerMode, settings.consecutiveWinLimit]);
 
-  // Record score & winner for a match
+  // Record score & winner for a match with duration logging
   const recordMatchScore = useCallback((matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null) => {
     if (!currentRound) return;
 
     const updatedMatches = currentRound.matches.map((m) => {
       if (m.id === matchId) {
-        return {
+        const elapsedSecs = courtTimersRef.current[m.courtId]?.seconds || m.durationSeconds || 0;
+        const isCompleted = winner !== null;
+        const updatedMatch: Match = {
           ...m,
           team1Score,
           team2Score,
           winner,
-          completed: winner !== null,
+          completed: isCompleted,
+          durationSeconds: elapsedSecs,
+          statsApplied: isCompleted ? true : m.statsApplied,
         };
+
+        if (isCompleted && !m.statsApplied) {
+          setPlayers((prevPlayers) => applyMatchResults(prevPlayers, [updatedMatch]));
+        }
+
+        return updatedMatch;
       }
       return m;
     });
 
-    const isAllCompleted = updatedMatches.every((m) => m.completed);
+    const isAllCompleted = updatedMatches.length > 0 && updatedMatches.every((m) => m.completed);
 
     setCurrentRound({
       ...currentRound,
@@ -860,6 +1272,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     if (winner !== null) {
+      const matchObj = updatedMatches.find((m) => m.id === matchId);
+      if (matchObj) {
+        setCourtTimers((prev) => {
+          if (!prev[matchObj.courtId]) return prev;
+          return {
+            ...prev,
+            [matchObj.courtId]: { ...prev[matchObj.courtId], isRunning: false },
+          };
+        });
+        setActiveRecapMatch(matchObj);
+      }
+
       if (settings.soundEnabled) {
         audioSynth.playChime();
       }
@@ -870,7 +1294,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [currentRound, settings.soundEnabled, settings.vibrationEnabled]);
 
-  // Swap any two players (on court, or between court & bench)
+  // Swap any two players
   const swapPlayers = useCallback((p1Id: string, p2Id: string) => {
     if (!currentRound || p1Id === p2Id) return;
 
@@ -885,7 +1309,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       let newResting = [...prev.restingPlayerIds];
 
-      // Replace helper
       const replaceInTeam = (team: [string, string], target: string, replacement: string): boolean => {
         if (team[0] === target) {
           team[0] = replacement;
@@ -898,7 +1321,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return false;
       };
 
-      // Find where p1 and p2 currently reside
       let p1InMatch = false;
       let p2InMatch = false;
 
@@ -907,7 +1329,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (m.team1.includes(p2Id) || m.team2.includes(p2Id)) p2InMatch = true;
       });
 
-      // Case 1: Both in matches
       if (p1InMatch && p2InMatch) {
         newMatches.forEach((m) => {
           if (m.team1[0] === p1Id) m.team1[0] = p2Id;
@@ -919,9 +1340,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           else if (m.team2[0] === p2Id) m.team2[0] = p1Id;
           else if (m.team2[1] === p2Id) m.team2[1] = p1Id;
         });
-      }
-      // Case 2: One in match, one in resting
-      else if (p1InMatch && !p2InMatch) {
+      } else if (p1InMatch && !p2InMatch) {
         newMatches.forEach((m) => {
           replaceInTeam(m.team1, p1Id, p2Id);
           replaceInTeam(m.team2, p1Id, p2Id);
@@ -943,15 +1362,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, [currentRound]);
 
-  // Complete current round, archive into round history, and update player cumulative stats
+  // Complete current round
   const completeCurrentRound = useCallback(() => {
     if (!currentRound) return;
 
-    // Apply match results to players
-    const updatedPlayers = applyMatchResults(players, currentRound.matches);
+    const unappliedMatches = currentRound.matches.filter((m) => m.completed && !m.statsApplied);
+    const updatedPlayers = unappliedMatches.length > 0 ? applyMatchResults(players, unappliedMatches) : players;
+    const finalRoundMatches = currentRound.matches.map((m) => ({ ...m, statsApplied: true }));
+    const finalizedRound = { ...currentRound, matches: finalRoundMatches };
 
-    // Update consecutive rests for players who were benched
-    const activeRestingSet = new Set(currentRound.restingPlayerIds);
+    const activeRestingSet = new Set(finalizedRound.restingPlayerIds);
     const finalPlayers = updatedPlayers.map((p) => {
       if (activeRestingSet.has(p.id)) {
         return {
@@ -963,41 +1383,36 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     setPlayers(finalPlayers);
-    setRounds((prev) => [currentRound, ...prev]);
+    setRounds((prev) => [finalizedRound, ...prev]);
 
-    // Automatically generate next round
     const nextRoundNumber = currentRound.roundNumber + 1;
+    const activePreset = settings.rotationPreset || settings.rotationStrategy;
     try {
-      const { round } = generateRotationRound(finalPlayers, courts, settings.rotationStrategy, nextRoundNumber);
+      const { round } = generateRotationRound(
+        finalPlayers,
+        courts,
+        activePreset,
+        nextRoundNumber,
+        currentRound,
+        settings.consecutiveWinLimit || 2
+      );
       setCurrentRound(round);
       resetTimer();
     } catch {
       setCurrentRound(null);
     }
-  }, [currentRound, players, courts, settings.rotationStrategy, resetTimer]);
+  }, [currentRound, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.consecutiveWinLimit, resetTimer]);
 
   const updateSettings = useCallback((newSettings: Partial<SessionSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-
-      if (newSettings.courtCount !== undefined && newSettings.courtCount !== prev.courtCount) {
-        const validCount = Math.max(1, Math.min(12, newSettings.courtCount));
-        const existingNames = courtsRef.current.map((court) => court.name);
-        const newCourts = buildCourts(validCount, existingNames);
-
+      if (newSettings.courtCount && newSettings.courtCount !== prev.courtCount) {
+        const newCourts = buildCourts(newSettings.courtCount, updated.courtNames);
         setCourts(newCourts);
         setCourtTimers((prevTimers) =>
           initCourtTimers(newCourts, updated.matchDurationMinutes, updated.timerMode, prevTimers)
         );
-        setCurrentRound((prevRound) => reconcileRoundCourtCount(prevRound, validCount));
-
-        return {
-          ...updated,
-          courtCount: validCount,
-          courtNames: newCourts.map((court) => court.name),
-        };
       }
-
       if (newSettings.timerMode && newSettings.timerMode !== prev.timerMode) {
         const isNowCountUp = newSettings.timerMode === 'count_up';
         setTimerSeconds(isNowCountUp ? 0 : updated.matchDurationMinutes * 60);
@@ -1013,7 +1428,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return next;
         });
       }
-
       return updated;
     });
   }, []);
@@ -1049,57 +1463,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const importSessionData = useCallback((jsonStr: string): boolean => {
     try {
       const data = JSON.parse(jsonStr);
-      const importedSettings: SessionSettings = {
-        ...DEFAULT_SETTINGS,
-        ...(data.settings || {}),
-      };
-      const importedCourts = Array.isArray(data.courts) ? data.courts : [];
-      const importedNames = importedCourts.map((court: Court) => court.name);
-      const validCourtCount = Math.max(
-        1,
-        Math.min(12, Number(importedSettings.courtCount) || DEFAULT_SETTINGS.courtCount)
-      );
-      const courtNames = Array.from(
-        { length: validCourtCount },
-        (_, idx) =>
-          importedNames[idx] ||
-          importedSettings.courtNames?.[idx] ||
-          `Court ${idx + 1}`
-      );
-      const loadedCourts = buildCourts(validCourtCount, courtNames);
-      const loadedRound = reconcileRoundCourtCount(
-        data.currentRound && typeof data.currentRound === 'object' ? data.currentRound : null,
-        validCourtCount
-      );
-
       if (data.players && Array.isArray(data.players)) setPlayers(data.players);
-      setSettings({
-        ...importedSettings,
-        courtCount: validCourtCount,
-        courtNames: loadedCourts.map((court) => court.name),
-      });
-      setCourts(loadedCourts);
+      if (data.settings) setSettings(data.settings);
+      if (data.courts && Array.isArray(data.courts)) setCourts(data.courts);
       if (data.rounds && Array.isArray(data.rounds)) setRounds(data.rounds);
-      setCurrentRound(loadedRound);
-      if (data.courtTimers && typeof data.courtTimers === 'object') {
-        setCourtTimers(
-          initCourtTimers(
-            loadedCourts,
-            importedSettings.matchDurationMinutes,
-            importedSettings.timerMode,
-            data.courtTimers
-          )
-        );
-      } else {
-        setCourtTimers(
-          initCourtTimers(
-            loadedCourts,
-            importedSettings.matchDurationMinutes,
-            importedSettings.timerMode
-          )
-        );
-      }
-
+      if (data.currentRound) setCurrentRound(data.currentRound);
+      if (data.courtTimers && typeof data.courtTimers === 'object') setCourtTimers(data.courtTimers);
       return true;
     } catch (e) {
       console.error('Import failed:', e);
@@ -1107,18 +1476,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
-  const completedGamesCount = rounds.reduce(
-    (total, round) => total + round.matches.filter((match) => match.completed).length,
-    0
-  );
-
   return (
     <SessionContext.Provider
       value={{
         players,
         courts,
         rounds,
-        completedGamesCount,
         currentRound,
         activeTab,
         setActiveTab,
@@ -1136,14 +1499,23 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         pauseCourtTimer,
         resetCourtTimer,
         adjustCourtTimer,
+        startWarmupTimer,
+        skipWarmup,
         startAllCourtTimers,
         pauseAllCourtTimers,
         resetAllCourtTimers,
+        averageMatchDurationMinutes,
+        getEstimatedWaitMinutes,
+        activeRecapMatch,
+        setActiveRecapMatch,
         addPlayer,
         updatePlayer,
         togglePlayerStatus,
         deletePlayer,
         bulkAddPlayers,
+        assignPlayerToSlot,
+        createAndAssignPlayer,
+        syncCurrentRoundWithRoster,
         updateCourtCount,
         updateCourtName,
         generateNextRound,

@@ -248,8 +248,8 @@ export const CourtTimersDeck: React.FC<CourtTimersDeckProps> = () => {
       )}
 
       {/* Grid of Independent Court Timers — Renders all courts configured */}
-      <div className={`grid grid-cols-1 ${courts.length === 2 ? 'md:grid-cols-2' : courts.length >= 3 ? 'md:grid-cols-2 lg:grid-cols-3' : ''} gap-3`}>
-        {courts.map((court) => {
+      <div className={`grid grid-cols-1 ${settings.courtCount === 2 ? 'md:grid-cols-2' : settings.courtCount >= 3 ? 'md:grid-cols-2 lg:grid-cols-3' : ''} gap-3`}>
+        {courts.slice(0, settings.courtCount).map((court) => {
           const courtId = court.id;
           const match = matchByCourtId.get(courtId);
           const defaultSecs = isCountUp ? 0 : targetSeconds;
@@ -302,11 +302,12 @@ export const CourtTimersDeck: React.FC<CourtTimersDeckProps> = () => {
                     <h3 className="font-extrabold text-white text-sm leading-tight">{court.name}</h3>
                     {match ? (
                       <p className="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-[220px]">
-                        {t1p1?.name.split(' ')[0]} & {t1p2?.name.split(' ')[0]} vs {t2p1?.name.split(' ')[0]} &{' '}
-                        {t2p2?.name.split(' ')[0]}
+                        {[t1p1?.name.split(' ')[0], t1p2?.name.split(' ')[0]].filter(Boolean).join(' & ') || 'Team 1'}{' '}
+                        vs{' '}
+                        {[t2p1?.name.split(' ')[0], t2p2?.name.split(' ')[0]].filter(Boolean).join(' & ') || 'Team 2'}
                       </p>
                     ) : (
-                      <p className="text-[11px] text-slate-500 italic">Ready for next game</p>
+                      <p className="text-[11px] text-amber-400/90 font-medium">Awaiting players</p>
                     )}
                   </div>
                 </div>

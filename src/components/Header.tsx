@@ -11,6 +11,8 @@ import {
   Users,
   Trophy,
   Sliders,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: string }> }> = [
@@ -22,12 +24,18 @@ const TABS: Array<{ id: ActiveTab; label: string; icon: React.FC<{ className?: s
 ];
 
 export const Header: React.FC = () => {
-  const { activeTab, setActiveTab, setIsTvMode, isTvMode } = useSession();
+  const { activeTab, setActiveTab, setIsTvMode, isTvMode, settings, updateSettings } = useSession();
 
   if (isTvMode) return null;
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80">
+    <header
+      className={`sticky top-0 z-40 transition-all border-b ${
+        settings.outdoorHighContrast
+          ? 'bg-black border-emerald-400/80 shadow-lg shadow-black'
+          : 'bg-slate-950/85 backdrop-blur-xl border-slate-800/80'
+      }`}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Logo / Brand */}
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab('live')}>
@@ -49,7 +57,7 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Desktop Navigation Tabs (Hidden on mobile < 768px, replaced by bottom nav) */}
+        {/* Desktop Navigation Tabs */}
         <nav className="hidden md:flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -60,7 +68,7 @@ export const Header: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                   isActive
-                    ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                    ? 'bg-emerald-500 text-slate-950 shadow-sm font-black'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
@@ -71,8 +79,31 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Tools: Mini Clock, PWA Install & TV Mode */}
+        {/* Right Tools: Outdoor Sun Mode, Mini Clock, TV Mode, PWA */}
         <div className="flex items-center gap-2">
+          {/* Outdoor Sunlight Mode Quick Toggle */}
+          <button
+            onClick={() => updateSettings({ outdoorHighContrast: !settings.outdoorHighContrast })}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm ${
+              settings.outdoorHighContrast
+                ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-amber-400/20'
+                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+            }`}
+            title={`Outdoor Sunlight Display Mode: ${settings.outdoorHighContrast ? 'ON' : 'OFF'}`}
+          >
+            {settings.outdoorHighContrast ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+                <span className="text-[10px] font-black uppercase">Sun Mode</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] text-slate-400 hidden sm:inline">Outdoor</span>
+              </>
+            )}
+          </button>
+
           {/* Mini Timer (visible if not on Live tab) */}
           {activeTab !== 'live' && (
             <div className="hidden sm:block">
@@ -80,14 +111,14 @@ export const Header: React.FC = () => {
             </div>
           )}
 
-          {/* TV Display Mode Button */}
+          {/* Fence Board / TV Display Mode Button */}
           <button
             onClick={() => setIsTvMode(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
-            title="Switch to full-screen Gym TV Display Mode"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-md shadow-indigo-950/30"
+            title="Switch to full-screen Fence Board / Gym TV Display Mode"
           >
-            <Tv className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden sm:inline">Gym TV</span>
+            <Tv className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Fence Board</span>
           </button>
 
           {/* PWA Install Button */}

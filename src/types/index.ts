@@ -2,6 +2,8 @@ export type PlayerStatus = 'active' | 'resting';
 
 export type SkillLevel = 2.0 | 2.5 | 3.0 | 3.5 | 4.0 | 4.5 | 5.0;
 
+export type SkillDisplayMode = 'dupr' | 'casual';
+
 export interface Player {
   id: string;
   name: string;
@@ -13,6 +15,7 @@ export interface Player {
   pointsWon: number;
   pointsLost: number;
   consecutiveRests: number;
+  consecutiveWins?: number;
   partnerHistory: Record<string, number>; // playerId -> count
   opponentHistory: Record<string, number>; // playerId -> count
 }
@@ -27,6 +30,8 @@ export interface Court {
 export interface CourtTimerState {
   seconds: number;
   isRunning: boolean;
+  isWarmup?: boolean;
+  warmupSecondsRemaining?: number;
 }
 
 export interface Match {
@@ -40,6 +45,8 @@ export interface Match {
   team2Score: number;
   winner: 'team1' | 'team2' | null;
   completed: boolean;
+  durationSeconds?: number;
+  statsApplied?: boolean;
 }
 
 export interface Round {
@@ -53,18 +60,30 @@ export interface Round {
 
 export type RotationStrategy = 'fair_social' | 'skill_balanced' | 'competitive';
 
+export type RotationPreset =
+  | '4_in_4_out'
+  | '2_in_2_out_winners_stay'
+  | 'fair_play_sitout'
+  | 'skill_balanced';
+
 export interface SessionSettings {
   courtCount: number;
   courtNames: string[];
   matchDurationMinutes: number;
-  pointsToWin: number;
+  pointsToWin: number; // 11, 15, 21, or 0 (Timed only)
+  winByTwo: boolean;
   rotationStrategy: RotationStrategy;
+  rotationPreset: RotationPreset;
+  skillDisplayMode: SkillDisplayMode;
+  outdoorHighContrast: boolean;
+  consecutiveWinLimit: number;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   wakeLockEnabled: boolean;
   autoRotateEnabled: boolean;
   autoRotateBufferSeconds: number;
   timerMode: 'count_up' | 'countdown';
+  timerType: 'independent' | 'global';
 }
 
 export type ActiveTab = 'live' | 'queue' | 'players' | 'standings' | 'settings';

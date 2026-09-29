@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Zap,
   TrendingUp,
+  Trophy,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -123,51 +124,130 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Matchmaking Rotation Strategy */}
+      {/* Preset Rotation Rules */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-bold text-white">Rotation Algorithm Strategy</h2>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-base font-bold text-white">Preset Rotation Rules</h2>
+          </div>
+          <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+            {settings.rotationPreset || '4_in_4_out'}
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5">
-          {(
-            [
-              {
-                id: 'fair_social' as RotationStrategy,
-                title: 'Fair Social (Recommended for Open Play)',
-                desc: 'Strictly maximizes partner variety (never repeats partners until everyone has paired) and balances bench resting times.',
-              },
-              {
-                id: 'skill_balanced' as RotationStrategy,
-                title: 'Skill Balanced (Close Matches)',
-                desc: 'Balances team skill totals (e.g. 4.0 + 3.0 vs 3.5 + 3.5) to keep matches highly competitive while rotating partners.',
-              },
-              {
-                id: 'competitive' as RotationStrategy,
-                title: 'Competitive Tiers (King of Court)',
-                desc: 'Groups players into courts based on skill level tiers so high-rated players face high-rated opponents.',
-              },
-            ] as const
-          ).map((strat) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            {
+              id: '4_in_4_out',
+              title: '4-in / 4-out (Standard Open Play)',
+              desc: 'Full 4-player rotation with strict sit-out balancing. Best for large open play groups and long queues.',
+            },
+            {
+              id: '2_in_2_out_winners_stay',
+              title: '2-in / 2-out (Winners Stay)',
+              desc: 'Winning pair stays on court (max 2 consecutive wins to prevent court hogging); losing pair rests; 2 challengers enter.',
+            },
+            {
+              id: 'fair_play_sitout',
+              title: 'Fair-Play / Sit-Out Priority',
+              desc: 'Strict priority: Guarantees any player with 2+ consecutive rests is placed on a court in the very next game.',
+            },
+            {
+              id: 'skill_balanced',
+              title: 'Skill / DUPR Matchmaker',
+              desc: 'Pairs and courts are balanced according to DUPR ratings to create close, nail-biting matches.',
+            },
+          ].map((preset) => (
             <div
-              key={strat.id}
-              onClick={() => updateSettings({ rotationStrategy: strat.id })}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
-                settings.rotationStrategy === strat.id
-                  ? 'bg-emerald-950/40 border-emerald-500 text-white shadow-md shadow-emerald-950/30'
+              key={preset.id}
+              onClick={() => updateSettings({ rotationPreset: preset.id as any, rotationStrategy: preset.id === 'skill_balanced' ? 'skill_balanced' : 'fair_social' })}
+              className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                (settings.rotationPreset || '4_in_4_out') === preset.id
+                  ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/30'
+                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-slate-100">{preset.title}</span>
+                  {(settings.rotationPreset || '4_in_4_out') === preset.id && (
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{preset.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Skill Level Display Format & Outdoor Display */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <Sliders className="w-5 h-5 text-blue-400" />
+          <h2 className="text-base font-bold text-white">Visual Display & Skill Tagging</h2>
+        </div>
+
+        {/* Skill Display Format */}
+        <div>
+          <label className="block text-xs font-bold text-slate-300 mb-2">
+            Player Skill Display Tagging
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => updateSettings({ skillDisplayMode: 'dupr' })}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                settings.skillDisplayMode !== 'casual'
+                  ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-md'
                   : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-slate-100">{strat.title}</span>
-                {settings.rotationStrategy === strat.id && (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                )}
+                <span className="font-bold text-sm text-slate-100">Numeric DUPR Rating (3.5)</span>
+                {settings.skillDisplayMode !== 'casual' && <Check className="w-4 h-4 text-emerald-400" />}
               </div>
-              <p className="text-xs text-slate-400 mt-1">{strat.desc}</p>
-            </div>
-          ))}
+              <p className="text-xs text-slate-400 mt-1">
+                Displays exact skill numbers: 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0.
+              </p>
+            </button>
+
+            <button
+              onClick={() => updateSettings({ skillDisplayMode: 'casual' })}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                settings.skillDisplayMode === 'casual'
+                  ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-md'
+                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-100">Casual Tiers (Beginner / Inter / Adv)</span>
+                {settings.skillDisplayMode === 'casual' && <Check className="w-4 h-4 text-emerald-400" />}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Displays friendly tier badges: Beginner, Intermediate, Advanced, Pro.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Outdoor Sunlight Mode */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+          <div>
+            <span className="font-bold text-sm text-slate-100 block">High-Contrast Outdoor Sunlight Theme</span>
+            <span className="text-[11px] text-slate-400">
+              Sharp border separation and vivid colors to prevent glare during outdoor daytime play
+            </span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+            <input
+              type="checkbox"
+              checked={settings.outdoorHighContrast ?? false}
+              onChange={(e) => updateSettings({ outdoorHighContrast: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400 shadow-inner"></div>
+          </label>
         </div>
       </div>
 
@@ -246,6 +326,69 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Scoring Target & Game Rules (Batch 2) */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <Trophy className="w-5 h-5 text-amber-400" />
+          <h2 className="text-base font-bold text-white">Scoring Rules & Match Target</h2>
+        </div>
+
+        {/* Play To Points */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-bold text-slate-300">
+              Play To (Target Points)
+            </label>
+            <span className="text-[11px] font-semibold text-emerald-400">
+              {settings.pointsToWin === 0 ? 'Timed only' : `${settings.pointsToWin} Points`}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { pts: 11, label: '11 pts (Standard)' },
+              { pts: 15, label: '15 pts' },
+              { pts: 21, label: '21 pts (Rally)' },
+              { pts: 0, label: 'Timed Only' },
+            ].map((opt) => (
+              <button
+                key={opt.pts}
+                onClick={() => updateSettings({ pointsToWin: opt.pts })}
+                className={`py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
+                  settings.pointsToWin === opt.pts
+                    ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            When a team reaches this score threshold with the required margin, the system automatically highlights the winner and prompts a single "Confirm Result" action.
+          </p>
+        </div>
+
+        {/* Win by 2 Toggle */}
+        <div className={`flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 transition-opacity ${settings.pointsToWin === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div>
+            <span className="font-bold text-sm text-slate-100 block">Win by 2 Points Margin</span>
+            <span className="text-[11px] text-slate-400">
+              Requires the winning team to hold at least a 2-point lead (e.g. 11-9, 12-10) before declaring victory
+            </span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+            <input
+              type="checkbox"
+              checked={settings.winByTwo ?? true}
+              disabled={settings.pointsToWin === 0}
+              onChange={(e) => updateSettings({ winByTwo: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+          </label>
+        </div>
+      </div>
+
       {/* Timer & Hardware Settings */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
@@ -321,7 +464,7 @@ export const SettingsView: React.FC = () => {
                 onClick={() => updateSettings({ matchDurationMinutes: mins })}
                 className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
                   settings.matchDurationMinutes === mins
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                    ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >

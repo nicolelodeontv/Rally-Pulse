@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import { useSession } from '../context/SessionContext';
-import { Trophy, Medal, Award, ArrowUpDown } from 'lucide-react';
+import { Trophy, Medal, ArrowUpDown } from 'lucide-react';
 
 type SortKey = 'wins' | 'winRate' | 'diff' | 'games';
 
 export const StandingsView: React.FC = () => {
-  const { players, completedGamesCount } = useSession();
+  const { players } = useSession();
   const [sortKey, setSortKey] = useState<SortKey>('winRate');
 
-  const sortedPlayers = [...players].sort((a, b) => {
-    const aHasPlayed = a.gamesPlayed > 0;
-    const bHasPlayed = b.gamesPlayed > 0;
+  // Partition into played vs unplayed (0 games played must always sort to the bottom)
+  const playedPlayers = players.filter((p) => p.gamesPlayed > 0);
+  const unplayedPlayers = players.filter((p) => p.gamesPlayed === 0);
 
-    // Never let a player with no completed games rank above a player who has played.
-    if (aHasPlayed !== bHasPlayed) {
-      return aHasPlayed ? -1 : 1;
-    }
-
-    const aWinRate = aHasPlayed ? a.wins / a.gamesPlayed : 0;
-    const bWinRate = bHasPlayed ? b.wins / b.gamesPlayed : 0;
+  playedPlayers.sort((a, b) => {
+    const aWinRate = a.wins / a.gamesPlayed;
+    const bWinRate = b.wins / b.gamesPlayed;
     const aDiff = a.pointsWon - a.pointsLost;
     const bDiff = b.pointsWon - b.pointsLost;
 
@@ -29,19 +25,21 @@ export const StandingsView: React.FC = () => {
     }
     if (sortKey === 'wins') {
       if (b.wins !== a.wins) return b.wins - a.wins;
+      if (bWinRate !== aWinRate) return bWinRate - aWinRate;
       return bDiff - aDiff;
     }
     if (sortKey === 'diff') {
-      return bDiff - aDiff;
+      if (bDiff !== aDiff) return bDiff - aDiff;
+      return b.wins - a.wins;
     }
-    return b.gamesPlayed - a.gamesPlayed;
+    // sortKey === 'games'
+    if (b.gamesPlayed !== a.gamesPlayed) return b.gamesPlayed - a.gamesPlayed;
+    return b.wins - a.wins;
   });
 
-  const rankByPlayerId = new Map(
-    sortedPlayers
-      .filter((player) => player.gamesPlayed > 0)
-      .map((player, index) => [player.id, index + 1])
-  );
+  unplayedPlayers.sort((a, b) => a.name.localeCompare(b.name));
+
+  const sortedPlayers = [...playedPlayers, ...unplayedPlayers];
 
   return (
     <div className="space-y-6 pb-28 md:pb-12 max-w-4xl mx-auto">
@@ -54,9 +52,6 @@ export const StandingsView: React.FC = () => {
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Real-time leaderboard updated automatically after every recorded match.
-          </p>
-          <p className="text-[11px] text-emerald-400 font-bold mt-1">
-            {completedGamesCount} completed {completedGamesCount === 1 ? 'game' : 'games'}
           </p>
         </div>
 
@@ -106,38 +101,40 @@ export const StandingsView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {sortedPlayers.map((player, idx) => {
-                const winRate =
-                  player.gamesPlayed > 0
-                    ? Math.round((player.wins / player.gamesPlayed) * 100)
-                    : 0;
+                const hasPlayed = player.gamesPlayed > 0;
+                const winRate = hasPlayed
+                  ? Math.round((player.wins / player.gamesPlayed) * 100)
+                  : 0;
                 const pointDiff = player.pointsWon - player.pointsLost;
-
-                const rank = rankByPlayerId.get(player.id) ?? null;
 
                 return (
                   <tr
                     key={player.id}
-                    className="hover:bg-slate-800/40 transition duration-150"
+                    className={`transition duration-150 ${
+                      hasPlayed ? 'hover:bg-slate-800/40' : 'bg-slate-950/30 text-slate-500 hover:bg-slate-800/20'
+                    }`}
                   >
-                    {/* Rank */}
+                    {/* Rank: 0 games played always gets a dash "—" */}
                     <td className="py-3.5 px-3 sm:px-4 text-center">
-                      {rank === null ? (
-                        <span className="font-mono-nums font-bold text-slate-600 text-xs">—</span>
-                      ) : rank === 1 ? (
+                      {!hasPlayed ? (
+                        <span className="font-mono-nums font-bold text-slate-600 text-sm select-none" title="Unranked (0 games played)">
+                          —
+                        </span>
+                      ) : idx === 0 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20">
                           1
                         </span>
-                      ) : rank === 2 ? (
+                      ) : idx === 1 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-950 font-black text-xs">
                           2
                         </span>
-                      ) : rank === 3 ? (
+                      ) : idx === 2 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700 text-white font-black text-xs">
                           3
                         </span>
                       ) : (
                         <span className="font-mono-nums font-bold text-slate-500 text-xs">
-                          {rank}
+                          {idx + 1}
                         </span>
                       )}
                     </td>
@@ -145,8 +142,8 @@ export const StandingsView: React.FC = () => {
                     {/* Name */}
                     <td className="py-3.5 px-3 sm:px-4">
                       <div className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
-                        <span>{player.name}</span>
-                        {rank === 1 && <Medal className="w-3.5 h-3.5 text-amber-400" />}
+                        <span className={!hasPlayed ? 'text-slate-400' : ''}>{player.name}</span>
+                        {hasPlayed && idx === 0 && <Medal className="w-3.5 h-3.5 text-amber-400" />}
                       </div>
                       <span className="text-[10px] text-slate-400">
                         {player.status === 'active' ? 'Active' : 'Resting'}
@@ -167,39 +164,53 @@ export const StandingsView: React.FC = () => {
 
                     {/* W - L */}
                     <td className="py-3.5 px-3 text-center font-mono-nums">
-                      <span className="text-emerald-400 font-bold">{player.wins}</span>
-                      <span className="text-slate-500 mx-1">-</span>
-                      <span className="text-rose-400 font-bold">{player.losses}</span>
+                      {hasPlayed ? (
+                        <>
+                          <span className="text-emerald-400 font-bold">{player.wins}</span>
+                          <span className="text-slate-500 mx-1">-</span>
+                          <span className="text-rose-400 font-bold">{player.losses}</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-600">0 - 0</span>
+                      )}
                     </td>
 
                     {/* Win Rate */}
                     <td className="py-3.5 px-3 text-center">
-                      <span
-                        className={`font-mono-nums font-bold px-2 py-0.5 rounded-md ${
-                          winRate >= 70
-                            ? 'text-emerald-400 bg-emerald-500/15'
-                            : winRate >= 50
-                            ? 'text-blue-400 bg-blue-500/15'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {winRate}%
-                      </span>
+                      {hasPlayed ? (
+                        <span
+                          className={`font-mono-nums font-bold px-2 py-0.5 rounded-md ${
+                            winRate >= 70
+                              ? 'text-emerald-400 bg-emerald-500/15'
+                              : winRate >= 50
+                              ? 'text-blue-400 bg-blue-500/15'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {winRate}%
+                        </span>
+                      ) : (
+                        <span className="font-mono-nums text-slate-600">—</span>
+                      )}
                     </td>
 
                     {/* Point Differential */}
                     <td className="py-3.5 px-3 text-right font-mono-nums font-bold">
-                      <span
-                        className={
-                          pointDiff > 0
-                            ? 'text-emerald-400'
-                            : pointDiff < 0
-                            ? 'text-rose-400'
-                            : 'text-slate-400'
-                        }
-                      >
-                        {pointDiff > 0 ? `+${pointDiff}` : pointDiff}
-                      </span>
+                      {hasPlayed ? (
+                        <span
+                          className={
+                            pointDiff > 0
+                              ? 'text-emerald-400'
+                              : pointDiff < 0
+                              ? 'text-rose-400'
+                              : 'text-slate-400'
+                          }
+                        >
+                          {pointDiff > 0 ? `+${pointDiff}` : pointDiff}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">0</span>
+                      )}
                     </td>
                   </tr>
                 );

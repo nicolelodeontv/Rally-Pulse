@@ -14,9 +14,10 @@ import { SettingsView } from './components/SettingsView';
 import { TvDisplayMode } from './components/TvDisplayMode';
 import { QuickAttendanceSheet } from './components/QuickAttendanceSheet';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { MatchShareModal } from './components/MatchShareModal';
 
 function MainContent() {
-  const { activeTab, isTvMode } = useSession();
+  const { activeTab, isTvMode, activeRecapMatch, setActiveRecapMatch, players, setActiveTab } = useSession();
 
   if (isTvMode) {
     return <TvDisplayMode />;
@@ -34,6 +35,18 @@ function MainContent() {
         {activeTab === 'standings' && <StandingsView />}
         {activeTab === 'settings' && <SettingsView />}
       </main>
+
+      {/* Match Share Modal & Recap Card Receipt */}
+      <MatchShareModal
+        isOpen={activeRecapMatch !== null}
+        onClose={() => setActiveRecapMatch(null)}
+        match={activeRecapMatch}
+        allPlayers={players}
+        onReturnToQueue={() => {
+          setActiveRecapMatch(null);
+          setActiveTab('queue');
+        }}
+      />
 
       {/* Slide-Up Bottom Sheet for Instant Attendance */}
       <QuickAttendanceSheet />
