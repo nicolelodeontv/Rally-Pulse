@@ -24,6 +24,18 @@ export function buildDuprCsv(
   currentRound?: Round | null
 ): string {
   const playerMap = new Map(players.map((player) => [player.id, player]));
+  const matchDates = new Map<string, string>();
+  for (const round of rounds) {
+    for (const match of round.matches) {
+      matchDates.set(match.id, new Date(round.timestamp).toISOString().slice(0, 10));
+    }
+  }
+  if (currentRound) {
+    for (const match of currentRound.matches) {
+      matchDates.set(match.id, new Date(currentRound.timestamp).toISOString().slice(0, 10));
+    }
+  }
+
   const matches = getCompletedMatches(rounds, currentRound);
 
   const rows = matches.map((match: Match) => {
@@ -35,7 +47,7 @@ export function buildDuprCsv(
     ];
 
     return [
-      new Date().toISOString().slice(0, 10),
+      matchDates.get(match.id) || new Date().toISOString().slice(0, 10),
       'Rally',
       ...names,
       match.team1Score,
