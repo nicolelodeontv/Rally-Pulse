@@ -3,7 +3,7 @@ import { useSession } from '../context/SessionContext';
 import { Trophy, History, Users, Clock, CheckCircle, Share2 } from 'lucide-react';
 
 export const QueueView: React.FC = () => {
-  const { players, rounds, currentRound, setActiveRecapMatch } = useSession();
+  const { players, rounds, currentRound } = useSession();
 
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -14,11 +14,13 @@ export const QueueView: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
+  const completedMatches = [
+    ...rounds.flatMap((round) => round.matches.filter((match) => match.completed && match.winner)),
+    ...(currentRound?.matches.filter((match) => match.completed && match.winner) || []),
+  ];
+
   // Count total completed games logged across all rounds
-  const totalCompletedGames = rounds.reduce(
-    (acc, r) => acc + r.matches.filter((m) => m.completed).length,
-    0
-  );
+  const totalCompletedGames = completedMatches.length;
 
   return (
     <div className="space-y-6 pb-28 md:pb-12 max-w-4xl mx-auto">
@@ -90,9 +92,42 @@ export const QueueView: React.FC = () => {
 
       {/* Completed Games History */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-lg font-bold text-white">Completed Games History</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <History className="w-5 h-5 text-emerald-400" />
+            <div>
+              <h2 className="text-lg font-bold text-white">Completed Games History</h2>
+              <p className="text-[11px] text-slate-500">{completedMatches.length} finished {completedMatches.length === 1 ? 'match' : 'matches'}</p>
+            </div>
+          </div>
+          {completedMatches.length > 0 && (
+            <button
+              type="button"
+              onClick={async () => {
+                const lines = completedMatches.map((match) => {
+                  const team1 = match.team1.map((id) => playerMap.get(id)?.name || 'Player').join(' & ');
+                  const team2 = match.team2.map((id) => playerMap.get(id)?.name || 'Player').join(' & ');
+                  return match.courtName + ': ' + team1 + ' ' + match.team1Score + ' - ' + match.team2Score + ' ' + team2;
+                });
+                const shareText = 'RallyPulse Finished Matches\n\n' + lines.join('\n');
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title: 'RallyPulse Finished Matches', text: shareText });
+                  } else {
+                    await navigator.clipboard.writeText(shareText);
+                    alert('Finished match results copied to clipboard.');
+                  }
+                } catch {
+                  // User cancelled native sharing or sharing is unavailable.
+                }
+              }}
+              className="h-10 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-black transition active:scale-95 cursor-pointer"
+              title="Share all finished match results"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share All Finished Matches</span>
+            </button>
+          )}
         </div>
 
         {rounds.length === 0 ? (
@@ -137,12 +172,7 @@ export const QueueView: React.FC = () => {
                     >
                       <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2">
                         <span>{m.courtName}</span>
-                        {m.winner && (
-                          <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
-                            <Trophy className="w-2.5 h-2.5" />
-                            {m.winner === 'team1' ? 'Team 1 Won • Team 2 Lost' : 'Team 2 Won • Team 1 Lost'}
-                          </span>
-                        )}
+
                       </div>
 
                       {/* Team 1 vs Team 2 */}
@@ -155,7 +185,16 @@ export const QueueView: React.FC = () => {
                           }`}
                         >
                           <span className="truncate pr-2">{t1p1} & {t1p2}</span>
-                          <span className="font-mono-nums font-black text-sm">{m.team1Score}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide ${
+                              m.winner === 'team1'
+                                ? 'bg-emerald-500 text-slate-950'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {m.winner === 'team1' ? 'WIN' : 'LOSE'}
+                            </span>
+                            <span className="font-mono-nums font-black text-sm">{m.team1Score}</span>
+                          </span>
                         </div>
 
                         <div
@@ -166,19 +205,20 @@ export const QueueView: React.FC = () => {
                           }`}
                         >
                           <span className="truncate pr-2">{t2p1} & {t2p2}</span>
-                          <span className="font-mono-nums font-black text-sm">{m.team2Score}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide ${
+                              m.winner === 'team2'
+                                ? 'bg-emerald-500 text-slate-950'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {m.winner === 'team2' ? 'WIN' : 'LOSE'}
+                            </span>
+                            <span className="font-mono-nums font-black text-sm">{m.team2Score}</span>
+                          </span>
                         </div>
                       </div>
 
-                      {/* Share Match Receipt Button */}
-                      <button
-                        onClick={() => setActiveRecapMatch(m)}
-                        className="mt-2.5 w-full min-h-[36px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-emerald-400 hover:text-emerald-300 border border-zinc-800 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
-                        title="View & share match receipt"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>Share Match Recap</span>
-                      </button>
+
                     </div>
                   );
                 })}
