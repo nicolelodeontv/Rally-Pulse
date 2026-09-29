@@ -39,6 +39,7 @@ export const PlayersView: React.FC = () => {
   // New player form
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState<SkillLevel>(3.0);
+  const [newGender, setNewGender] = useState<Player['gender']>(undefined);
 
   const filteredPlayers = players.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -52,8 +53,9 @@ export const PlayersView: React.FC = () => {
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    addPlayer(newName, newSkill);
+    addPlayer(newName, newSkill, newGender);
     setNewName('');
+    setNewGender(undefined);
     setShowAddModal(false);
   };
 
@@ -218,6 +220,7 @@ export const PlayersView: React.FC = () => {
                         <span>{player.gamesPlayed} GP</span>
                         <span>•</span>
                         <span className="text-emerald-400 font-semibold">{player.wins}W - {player.losses}L</span>
+                        {player.consecutiveRests > 0 && <><span>•</span><span className="text-amber-400 font-semibold">Sat {player.consecutiveRests} {player.consecutiveRests === 1 ? 'game' : 'games'}</span></>}
                         <span>•</span>
                         <span className="flex items-center gap-0.5">
                           <TrendingUp className="w-3 h-3 text-slate-400" />
@@ -320,6 +323,48 @@ export const PlayersView: React.FC = () => {
                       }`}
                     >
                       {lvl.toFixed(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Gender (for optional mixed doubles)</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { value: undefined, label: 'Not set' },
+                    { value: 'female' as const, label: 'Female' },
+                    { value: 'male' as const, label: 'Male' },
+                    { value: 'other' as const, label: 'Other' },
+                  ].map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => setNewGender(option.value)}
+                      className={`py-2 rounded-xl font-bold text-[10px] transition cursor-pointer ${newGender === option.value ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Gender (for optional mixed doubles)</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { value: undefined, label: 'Not set' },
+                    { value: 'female' as const, label: 'Female' },
+                    { value: 'male' as const, label: 'Male' },
+                    { value: 'other' as const, label: 'Other' },
+                  ].map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => setEditingPlayer({ ...editingPlayer, gender: option.value })}
+                      className={`py-2 rounded-xl font-bold text-[10px] transition cursor-pointer ${editingPlayer.gender === option.value ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                      {option.label}
                     </button>
                   ))}
                 </div>
