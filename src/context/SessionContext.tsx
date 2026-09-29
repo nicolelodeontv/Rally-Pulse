@@ -82,7 +82,7 @@ interface SessionContextType {
   updateCourtCount: (count: number) => void;
   updateCourtName: (courtId: string, name: string) => void;
   generateNextRound: () => void;
-  recordMatchScore: (matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null) => void;
+  recordMatchScore: (matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null, servingPlayerId?: string, serviceNumber?: 1 | 2) => void;
   swapPlayers: (player1Id: string, player2Id: string) => void;
   removePlayerFromSlot: (playerId: string) => void;
   reshuffleCurrentRound: (options: ShuffleOptions) => void;
@@ -1260,8 +1260,15 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [currentRound, rounds, players, courts, settings.rotationPreset, settings.rotationStrategy, settings.matchDurationMinutes, settings.soundEnabled, settings.timerMode, settings.consecutiveWinLimit]);
 
   // Record score & winner for a match with duration logging
-  const recordMatchScore = useCallback((matchId: string, team1Score: number, team2Score: number, winner: 'team1' | 'team2' | null) => {
-    if (!currentRound) return;
+  const recordMatchScore = useCallback((
+    matchId: string,
+    team1Score: number,
+    team2Score: number,
+    winner: 'team1' | 'team2' | null,
+    servingPlayerId?: string,
+    serviceNumber?: 1 | 2
+  ) => {
+    if (!currentRound || sessionEnded) return;
 
     const updatedMatches = currentRound.matches.map((m) => {
       if (m.id === matchId) {
@@ -1281,6 +1288,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           completed: isCompleted,
           durationSeconds: elapsedSecs,
           statsApplied: isCompleted ? true : m.statsApplied,
+          servingPlayerId: servingPlayerId ?? m.servingPlayerId ?? m.team1[0],
+          serviceNumber: serviceNumber ?? m.serviceNumber ?? 1,
+          scoreHistory: [
+            ...(m.scoreHistory || []),
+            ...(m.team1Score !== team1Score || m.team2Score !== team2Score
+              ? [{ team1Score: m.team1Score, team2Score: m.team2Score }]
+              : []),
+          ],
         };
 
         if (isCompleted && !m.statsApplied) {
@@ -1320,7 +1335,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       triggerConfetti();
     }
-  }, [currentRound, settings.soundEnabled, settings.vibrationEnabled]);
+  }, [currentRound, settings.soundEnabled, settings.vibrationEnabled, sessionEnded]);
 
   // Remove a player from the current court assignments and return them to the bench.
   const removePlayerFromSlot = useCallback((playerId: string) => {
