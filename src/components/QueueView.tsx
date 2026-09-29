@@ -14,13 +14,13 @@ export const QueueView: React.FC = () => {
         .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'active')
     : [];
 
-  const completedMatches = rounds.flatMap((round) => round.matches.filter((match) => match.completed && match.winner));
+  const completedMatches = [
+    ...rounds.flatMap((round) => round.matches.filter((match) => match.completed && match.winner)),
+    ...(currentRound?.matches.filter((match) => match.completed && match.winner) || []),
+  ];
 
   // Count total completed games logged across all rounds
-  const totalCompletedGames = rounds.reduce(
-    (acc, r) => acc + r.matches.filter((m) => m.completed).length,
-    0
-  );
+  const totalCompletedGames = completedMatches.length;
 
   return (
     <div className="space-y-6 pb-28 md:pb-12 max-w-4xl mx-auto">
