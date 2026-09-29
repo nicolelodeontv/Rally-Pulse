@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Match, Player, SkillLevel } from '../types';
 import {
   Trophy,
@@ -31,6 +31,7 @@ interface PickleballCourtProps {
   onOpenAttendance?: () => void;
   isTvMode?: boolean;
   activePlayerCount?: number;
+  onDropPlayerToSlot?: (playerId: string, team: 'team1' | 'team2', slotIndex: 0 | 1) => void;
 }
 
 export function formatSkillBadge(skillLevel: SkillLevel, mode: 'dupr' | 'casual' = 'dupr'): { label: string; bg: string } {
@@ -58,6 +59,7 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
   onOpenAttendance,
   isTvMode = false,
   activePlayerCount = 0,
+  onDropPlayerToSlot,
 }) => {
   const {
     courtTimers,
@@ -351,6 +353,14 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
         <button
           type="button"
           onClick={() => onAssignSlot?.(match.courtId, teamNumber === 1 ? 'team1' : 'team2', slotIndex, slotName)}
+          onDragOver={(event) => {
+            if (!isTvMode && event.dataTransfer.types.includes('text/plain')) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const playerId = event.dataTransfer.getData('text/plain');
+            if (playerId) onDropPlayerToSlot?.(playerId, teamNumber === 1 ? 'team1' : 'team2', slotIndex);
+          }}
           className="w-full min-h-[48px] flex items-center justify-center gap-1.5 p-2 rounded-xl border border-dashed border-emerald-500/40 hover:border-emerald-400 bg-slate-900/80 hover:bg-emerald-950/40 text-emerald-400 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 group"
         >
           <UserPlus className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -364,6 +374,12 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
 
     return (
       <div
+        draggable={!isTvMode}
+        onDragStart={(event) => {
+          if (isTvMode) return;
+          event.dataTransfer.setData('text/plain', player.id);
+          event.dataTransfer.effectAllowed = 'move';
+        }}
         className={`group relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 select-none min-h-[48px] ${
           isWinner
             ? 'bg-amber-400/25 border-2 border-amber-400 text-amber-200 shadow-md shadow-amber-500/20'
