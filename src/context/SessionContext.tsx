@@ -411,6 +411,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Execute Auto-Rotate to cycle queue and immediately start the next match
   const executeAutoRotate = useCallback(() => {
+    if (sessionEnded) return;
     setAutoRotateCountdown(null);
     const activeRound = currentRoundRef.current;
     const currentSettings = settingsRef.current;
@@ -449,7 +450,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentSettings.rotationPreset || currentSettings.rotationStrategy,
         nextRoundNumber,
         activeRound || undefined,
-        currentSettings.consecutiveWinLimit || 2
+        currentSettings.consecutiveWinLimit || 2,
+        currentSettings.shuffleDefaults
       );
       setCurrentRound(res.round);
     } catch (err) {
@@ -1567,10 +1569,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       currentRound,
       timerSeconds,
       courtTimers,
+      sessionEnded,
       exportedAt: new Date().toISOString(),
     };
     return JSON.stringify(backup, null, 2);
-  }, [players, settings, courts, rounds, currentRound, timerSeconds, courtTimers]);
+  }, [players, settings, courts, rounds, currentRound, timerSeconds, courtTimers, sessionEnded]);
 
   const importSessionData = useCallback((jsonStr: string): boolean => {
     try {
@@ -1581,6 +1584,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (data.rounds && Array.isArray(data.rounds)) setRounds(data.rounds);
       if (data.currentRound) setCurrentRound(data.currentRound);
       if (data.courtTimers && typeof data.courtTimers === 'object') setCourtTimers(data.courtTimers);
+      setSessionEnded(data.sessionEnded === true);
       return true;
     } catch (e) {
       console.error('Import failed:', e);
