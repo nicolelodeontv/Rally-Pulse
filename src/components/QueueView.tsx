@@ -3,7 +3,7 @@ import { useSession } from '../context/SessionContext';
 import { Trophy, History, Users, Clock, CheckCircle } from 'lucide-react';
 
 export const QueueView: React.FC = () => {
-  const { players, rounds, currentRound } = useSession();
+  const { players, rounds, currentRound, completedGamesCount } = useSession();
 
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -26,7 +26,7 @@ export const QueueView: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-slate-300">
           <Clock className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{rounds.length} Rounds Logged</span>
+          <span>{completedGamesCount} Games Logged</span>
         </div>
       </div>
 
@@ -86,7 +86,7 @@ export const QueueView: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-lg font-bold text-white">Completed Rounds History</h2>
+          <h2 className="text-lg font-bold text-white">Completed Games History</h2>
         </div>
 
         {rounds.length === 0 ? (
@@ -94,7 +94,7 @@ export const QueueView: React.FC = () => {
             <CheckCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <h4 className="text-sm font-bold text-slate-300">No Completed Rounds Yet</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Finish matches on the Live screen and tap "Next Round" to log completed game scores and update player records.
+              Finish matches on the Live screen and tap "Next Game" to log completed game scores and update player records.
             </p>
           </div>
         ) : (
