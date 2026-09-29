@@ -1296,7 +1296,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             [matchObj.courtId]: { ...prev[matchObj.courtId], isRunning: false },
           };
         });
-        setActiveRecapMatch(matchObj);
       }
 
       if (settings.soundEnabled) {
