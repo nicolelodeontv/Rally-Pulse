@@ -671,7 +671,7 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleDeclareWinnerManual('team1')
+                  onClick={() => handleDeclareWinnerManual('team1')}
                   className={`flex-1 sm:flex-initial min-h-[48px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
                     match.winner === 'team1'
                       ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
@@ -683,7 +683,7 @@ export const PickleballCourt: React.FC<PickleballCourtProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDeclareWinnerManual('team2')
+                  onClick={() => handleDeclareWinnerManual('team2')}
                   className={`flex-1 sm:flex-initial min-h-[48px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
                     match.winner === 'team2'
                       ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
