@@ -30,7 +30,7 @@ export const PWAInstallButton: React.FC<{ variant?: 'header' | 'settings' | 'com
               ? 'w-full justify-center bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-bold px-4 py-3 rounded-xl shadow-lg shadow-emerald-900/30'
               : variant === 'compact'
               ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs'
-              : 'h-10 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 rounded-lg text-sm shadow-sm'
+              : 'h-10 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 border border-emerald-500 text-slate-950 font-bold px-3 rounded-lg text-sm shadow-sm'
           }`}
           title="Install RallyPulse on your device"
         >
@@ -45,7 +45,7 @@ export const PWAInstallButton: React.FC<{ variant?: 'header' | 'settings' | 'com
           className={`flex items-center gap-2 font-medium transition cursor-pointer active:scale-95 ${
             variant === 'settings'
               ? 'w-full justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-3 rounded-xl'
-              : 'h-10 bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/60 px-3 rounded-lg text-sm'
+              : 'h-10 flex items-center gap-2 bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/60 px-3 rounded-lg text-sm'
           }`}
           title="Install on iPhone / iPad"
         >
